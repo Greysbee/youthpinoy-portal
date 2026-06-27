@@ -7,13 +7,69 @@
 
 import Navbar from "@/components/navbar";
 import Link from "next/link";
-import { mockCourses } from "@/lib/mock-data";
-import { useState, use } from "react";
+import { createClient } from "@/lib/supabase-client";
+import { useState, useEffect, use } from "react";
+import { useRouter } from "next/navigation";
 
 export default function CheckoutPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const course = mockCourses.find((c) => c.id === id);
+  const [course, setCourse] = useState<{ id: string; title: string; price: number; type: string } | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const router = useRouter();
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from("courses")
+      .select("id, title, price, type")
+      .eq("id", id)
+      .single()
+      .then(({ data }) => {
+        setCourse(data);
+        setLoading(false);
+      });
+  }, [id]);
+
+  async function handleEnroll() {
+    setError("");
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    const status = course && course.price === 0 ? "free" : "pending";
+
+    const { error: enrollError } = await supabase
+      .from("enrollments")
+      .insert({ user_id: user.id, course_id: id, status });
+
+    if (enrollError) {
+      if (enrollError.code === "23505") {
+        setError("You are already enrolled in this course.");
+      } else {
+        setError(enrollError.message);
+      }
+      return;
+    }
+
+    setSubmitted(true);
+  }
+
+  if (loading) {
+    return (
+      <>
+        <Navbar />
+        <main className="flex flex-1 items-center justify-center">
+          <p className="text-brand-muted">Loading...</p>
+        </main>
+      </>
+    );
+  }
 
   if (!course) {
     return (
@@ -37,9 +93,13 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h1 className="mt-4 text-2xl font-bold text-brand-dark">Enrollment Request Received!</h1>
+            <h1 className="mt-4 text-2xl font-bold text-brand-dark">
+              {course.price === 0 ? "You're In!" : "Enrollment Request Received!"}
+            </h1>
             <p className="mt-2 text-brand-muted">
-              Your enrollment request has been received. Our team will confirm your payment and activate your access shortly.
+              {course.price === 0
+                ? "You now have full access to this course."
+                : "Your enrollment request has been received. Our team will confirm your payment and activate your access shortly."}
             </p>
             <Link
               href="/dashboard"
@@ -71,28 +131,37 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                 <p className="text-sm text-brand-muted">Full course access</p>
               </div>
               <p className="text-lg font-bold text-brand-dark whitespace-nowrap">
-                {course.price === 0 ? "Free" : `₱${course.price.toLocaleString()}`}
+                {course.price === 0 ? "Free" : `₱${Number(course.price).toLocaleString()}`}
               </p>
             </div>
 
-            <hr className="my-6 border-gray-200" />
-
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-              <h2 className="font-semibold text-amber-800">Payment Instructions</h2>
-              <div className="mt-2 space-y-1 text-sm text-amber-700">
-                <p><strong>GCash:</strong> 0917-XXX-XXXX (YouthPinoy)</p>
-                <p><strong>BPI:</strong> 1234-5678-90 (YouthPinoy Inc.)</p>
-                <p className="mt-2">
-                  Send your payment, then click &quot;Complete Enrollment&quot; below. Our team will verify your payment and activate your access within 24 hours.
-                </p>
+            {error && (
+              <div className="mt-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+                {error}
               </div>
-            </div>
+            )}
+
+            {course.price > 0 && (
+              <>
+                <hr className="my-6 border-gray-200" />
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <h2 className="font-semibold text-amber-800">Payment Instructions</h2>
+                  <div className="mt-2 space-y-1 text-sm text-amber-700">
+                    <p><strong>GCash:</strong> 0917-XXX-XXXX (YouthPinoy)</p>
+                    <p><strong>BPI:</strong> 1234-5678-90 (YouthPinoy Inc.)</p>
+                    <p className="mt-2">
+                      Send your payment, then click &quot;Complete Enrollment&quot; below. Our team will verify your payment and activate your access within 24 hours.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
 
             <button
-              onClick={() => setSubmitted(true)}
+              onClick={handleEnroll}
               className="mt-6 w-full min-h-11 rounded-lg bg-brand-gold px-4 py-2.5 text-sm font-bold text-brand-dark hover:bg-amber-400 transition-colors"
             >
-              Complete Enrollment
+              {course.price === 0 ? "Enroll for Free" : "Complete Enrollment"}
             </button>
           </div>
         </div>

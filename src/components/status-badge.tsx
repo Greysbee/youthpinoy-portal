@@ -5,7 +5,7 @@ const styles = {
 } as const;
 
 const labels = {
-  paid: "Active",
+  paid: "Payment Confirmed",
   free: "Free Access",
   pending: "Pending Payment",
 } as const;

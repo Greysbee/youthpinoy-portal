@@ -2,20 +2,25 @@
 
 import AdminShell from "@/components/admin-shell";
 import CourseForm from "@/components/course-form";
-import { mockCourses } from "@/lib/mock-data";
-import { use } from "react";
+import { createClient } from "@/lib/supabase-client";
+import { use, useEffect, useState } from "react";
 
 export default function EditCoursePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const course = mockCourses.find((c) => c.id === id);
+  const [course, setCourse] = useState<{ id: string; title: string; description: string | null; price: number; is_published: boolean; type: string; cover_image_url: string | null } | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (!course) {
-    return (
-      <AdminShell>
-        <p className="text-brand-muted">Course not found.</p>
-      </AdminShell>
-    );
-  }
+  useEffect(() => {
+    createClient()
+      .from("courses")
+      .select("id, title, description, price, is_published, type, cover_image_url")
+      .eq("id", id)
+      .single()
+      .then(({ data }) => { setCourse(data); setLoading(false); });
+  }, [id]);
+
+  if (loading) return <AdminShell><p className="text-brand-muted">Loading...</p></AdminShell>;
+  if (!course) return <AdminShell><p className="text-brand-muted">Course not found.</p></AdminShell>;
 
   return (
     <AdminShell>

@@ -3,14 +3,56 @@
 import Link from "next/link";
 import Navbar from "@/components/navbar";
 import { useState } from "react";
+import { createClient } from "@/lib/supabase-client";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const router = useRouter();
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    alert(`Demo: Would log in as ${email}. Supabase auth not wired yet.`);
+    setError("");
+    setLoading(true);
+
+    const supabase = createClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (signInError) {
+      setError(signInError.message);
+      setLoading(false);
+      return;
+    }
+
+    router.push("/dashboard");
+    router.refresh();
+  }
+
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setResetLoading(true);
+
+    const supabase = createClient();
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    if (resetError) {
+      setError(resetError.message);
+      setResetLoading(false);
+      return;
+    }
+
+    setResetSent(true);
+    setResetLoading(false);
   }
 
   return (
@@ -19,54 +61,84 @@ export default function LoginPage() {
       <main className="flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
-            <h1 className="text-2xl font-bold text-brand-dark text-center">Welcome Back</h1>
-            <p className="mt-1 text-center text-sm text-brand-muted">
-              Log in to access your courses
-            </p>
+            {showForgot ? (
+              <>
+                <h1 className="text-2xl font-bold text-brand-dark text-center">Reset Password</h1>
+                <p className="mt-1 text-center text-sm text-brand-muted">
+                  Enter your email and we&apos;ll send you a reset link
+                </p>
 
-            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-brand-dark">
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none"
-                  placeholder="you@example.com"
-                />
-              </div>
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-brand-dark">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none"
-                  placeholder="••••••••"
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full min-h-11 rounded-lg bg-brand-blue px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark transition-colors"
-              >
-                Log In
-              </button>
-            </form>
+                {error && (
+                  <div className="mt-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
+                )}
 
-            <p className="mt-6 text-center text-sm text-brand-muted">
-              Don&apos;t have an account?{" "}
-              <Link href="/register" className="font-semibold text-brand-accent hover:underline">
-                Register
-              </Link>
-            </p>
+                {resetSent ? (
+                  <div className="mt-6 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-4 text-center">
+                    <p className="text-sm text-emerald-700 font-medium">Reset link sent!</p>
+                    <p className="mt-1 text-xs text-emerald-600">Check your email for the password reset link.</p>
+                  </div>
+                ) : (
+                  <form onSubmit={handleForgotPassword} className="mt-8 space-y-5">
+                    <div>
+                      <label htmlFor="resetEmail" className="block text-sm font-medium text-brand-dark">Email</label>
+                      <input id="resetEmail" type="email" required value={resetEmail} onChange={(e) => setResetEmail(e.target.value)}
+                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none"
+                        placeholder="you@example.com" />
+                    </div>
+                    <button type="submit" disabled={resetLoading}
+                      className="w-full min-h-11 rounded-lg bg-brand-blue px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark transition-colors disabled:opacity-50">
+                      {resetLoading ? "Sending..." : "Send Reset Link"}
+                    </button>
+                  </form>
+                )}
+
+                <p className="mt-6 text-center text-sm text-brand-muted">
+                  <button onClick={() => { setShowForgot(false); setError(""); setResetSent(false); }}
+                    className="font-semibold text-brand-accent hover:underline">
+                    ← Back to Login
+                  </button>
+                </p>
+              </>
+            ) : (
+              <>
+                <h1 className="text-2xl font-bold text-brand-dark text-center">Welcome Back</h1>
+                <p className="mt-1 text-center text-sm text-brand-muted">Log in to access your courses</p>
+
+                {error && (
+                  <div className="mt-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
+                )}
+
+                <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-brand-dark">Email</label>
+                    <input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                      className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none"
+                      placeholder="you@example.com" />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="password" className="block text-sm font-medium text-brand-dark">Password</label>
+                      <button type="button" onClick={() => { setShowForgot(true); setResetEmail(email); setError(""); }}
+                        className="text-xs font-medium text-brand-accent hover:underline">
+                        Forgot password?
+                      </button>
+                    </div>
+                    <input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+                      className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none"
+                      placeholder="••••••••" />
+                  </div>
+                  <button type="submit" disabled={loading}
+                    className="w-full min-h-11 rounded-lg bg-brand-blue px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark transition-colors disabled:opacity-50">
+                    {loading ? "Logging In..." : "Log In"}
+                  </button>
+                </form>
+
+                <p className="mt-6 text-center text-sm text-brand-muted">
+                  Don&apos;t have an account?{" "}
+                  <Link href="/register" className="font-semibold text-brand-accent hover:underline">Register</Link>
+                </p>
+              </>
+            )}
           </div>
         </div>
       </main>
