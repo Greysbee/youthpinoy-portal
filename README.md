@@ -26,6 +26,10 @@ Open http://localhost:3000.
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (browser + server) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (browser + server, RLS-scoped) |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Server only.** Bypasses RLS; used by `createAdminClient()` for access grants and reading secret columns (`videos.provider_ref`). Never exposed to the browser. |
+| `PAYMONGO_SECRET_KEY` | **Server only.** PayMongo secret key (`sk_test_…` / `sk_live_…`). Test vs live is inferred from this prefix. |
+| `NEXT_PUBLIC_PAYMONGO_PUBLIC_KEY` | PayMongo public key (`pk_test_…`). |
+| `PAYMONGO_WEBHOOK_SECRET` | **Server only.** Signing secret (`whsec_…`) for the registered webhook; used to verify `Paymongo-Signature`. |
+| `NEXT_PUBLIC_SITE_URL` | Base URL for PayMongo success/cancel redirects (e.g. `http://localhost:3000`). |
 
 Supabase MCP is scoped to this project via [`.mcp.json`](.mcp.json) (`--project-ref`)
 with the token in the `SUPABASE_ACCESS_TOKEN` env var.
@@ -129,3 +133,65 @@ Log in as **admin@csms.test** (`CsmsTest!2026`).
 
 > Note: importing `sample-participants.csv` creates real participant rows in your DB.
 > Delete them from **/admin/participants** (or via SQL) afterward if you want a clean slate.
+
+## Milestone 3 — event registration + PayMongo (test mode)
+
+- **/events** and **/events/[slug]** — public listings + detail with a registration
+  form built from the event's `registration_fields`.
+- **Free events** → register immediately (creates `registration` + `entitlement`).
+- **Paid events** → choose quantity → server creates a `pending` order → creates a
+  PayMongo **Checkout Session** → redirects to PayMongo's hosted page.
+- **Webhook** `POST /api/webhooks/paymongo` — verifies the `Paymongo-Signature`
+  (HMAC-SHA256 of `${t}.${rawBody}`, `te` in test mode) over the raw body, then on
+  `checkout_session.payment.paid` / `payment.paid` marks the order paid and creates
+  the buyer's registration + entitlement (1 seat); if quantity > 1 it creates a
+  `group` with `seats_total = quantity`. **Idempotent** and the **only** place access
+  is granted — never from the success redirect.
+- **/checkout/success** polls `GET /api/orders/[id]/status` until the webhook flips
+  the order to `paid`.
+
+### Registering the webhook (get `PAYMONGO_WEBHOOK_SECRET`)
+
+PayMongo cannot reach `localhost`, so either **deploy** (Vercel) or run a tunnel
+(`cloudflared tunnel --url http://localhost:3000` or `ngrok http 3000`) to get a
+public HTTPS URL.
+
+1. PayMongo dashboard → **Developers → Webhooks → Add endpoint** (in **Test mode**).
+2. URL: `https://<your-public-host>/api/webhooks/paymongo`
+3. Subscribe to events: **`checkout_session.payment.paid`**, `payment.paid`,
+   `payment.failed`.
+4. Copy the **signing secret** (`whsec_…`) → set `PAYMONGO_WEBHOOK_SECRET` in
+   `.env.local` (and Vercel env) → restart the server.
+
+> The repo currently has a **local dev placeholder** for `PAYMONGO_WEBHOOK_SECRET`
+> (used only to sign simulated webhooks during development). Replace it with the real
+> `whsec_…` before accepting real test payments end-to-end.
+
+### PayMongo test cards
+
+Use any future expiry and any 3-digit CVC:
+
+| Card | Result |
+| --- | --- |
+| `4343 4343 4343 4345` | Success (Visa) |
+| `5555 4444 4444 4457` | Success (Mastercard) |
+| `4120 0000 0000 0007` | Success **with 3-D Secure** prompt |
+| `5100 0000 0000 0198` | Declined |
+
+For GCash/e-wallets in test mode, PayMongo shows an "Authorize test payment" button.
+(Confirm against PayMongo's current test-cards doc if any card changes.)
+
+### Milestone 3 — manual test script
+
+1. **/events** → 9 events; open **CSMSv8** (Free) → **Register for free** → redirected
+   with "You're registered!" → **/library** shows CSMSv8 Session 2 unlocked.
+2. Open **CSMSv10** (₱500) as a logged-in member → **Proceed to payment** → you land
+   on PayMongo's hosted checkout showing **₱500.00**.
+3. **(Needs the webhook reachable — deploy or tunnel.)** Pay with `4343 4343 4343
+   4345` → PayMongo redirects to **/checkout/success**, which polls and flips to
+   **"Payment confirmed"**; the event's videos unlock in **/library**; **/admin/orders**
+   shows the order as **paid**.
+4. Buy **quantity 2+** of a paid event → after payment a **group** is created
+   (visible on the buyer's **/admin/participants** detail) — invites come in M4.
+5. Security: access is granted only by the verified webhook. The success page never
+   grants; a `pending` order simply keeps polling.

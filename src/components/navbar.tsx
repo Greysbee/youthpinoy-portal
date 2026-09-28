@@ -46,6 +46,9 @@ export default function Navbar() {
           <Link href="/" className="hover:text-brand-gold transition-colors">
             Courses
           </Link>
+          <Link href="/events" className="hover:text-brand-gold transition-colors">
+            Events
+          </Link>
           {user && (
             <Link href="/library" className="hover:text-brand-gold transition-colors">
               Library
@@ -101,6 +104,9 @@ export default function Navbar() {
           <div className="flex flex-col gap-2">
             <Link href="/" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-3 hover:bg-white/10">
               Courses
+            </Link>
+            <Link href="/events" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-3 hover:bg-white/10">
+              Events
             </Link>
             {user && (
               <Link href="/library" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-3 hover:bg-white/10">
