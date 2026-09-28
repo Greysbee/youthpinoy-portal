@@ -54,6 +54,11 @@ export default function Navbar() {
               Library
             </Link>
           )}
+          {user && (
+            <Link href="/account" className="hover:text-brand-gold transition-colors">
+              Account
+            </Link>
+          )}
           {(role === "admin" || role === "moderator" || role === "instructor") && (
             <Link href="/admin" className="hover:text-brand-gold transition-colors">
               Admin
@@ -111,6 +116,11 @@ export default function Navbar() {
             {user && (
               <Link href="/library" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-3 hover:bg-white/10">
                 Library
+              </Link>
+            )}
+            {user && (
+              <Link href="/account" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-3 hover:bg-white/10">
+                Account
               </Link>
             )}
             {(role === "admin" || role === "moderator" || role === "instructor") && (

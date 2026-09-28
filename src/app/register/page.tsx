@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Navbar from "@/components/navbar";
 import PasswordRules from "@/components/password-field";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase-client";
 import { validatePassword } from "@/lib/password-validation";
 import { useRouter } from "next/navigation";
@@ -14,7 +14,20 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [nextUrl, setNextUrl] = useState("/library");
+  const [emailLocked, setEmailLocked] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const n = p.get("next");
+    if (n) setNextUrl(n);
+    const em = p.get("email");
+    if (em) {
+      setEmail(em);
+      setEmailLocked(true);
+    }
+  }, []);
 
   const pwError = password.length > 0 ? validatePassword(password) : null;
 
@@ -33,7 +46,7 @@ export default function RegisterPage() {
     });
 
     if (signUpError) { setError(signUpError.message); setLoading(false); return; }
-    router.push("/dashboard");
+    router.push(nextUrl);
     router.refresh();
   }
 
@@ -58,8 +71,10 @@ export default function RegisterPage() {
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-brand-dark">Email</label>
                 <input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none"
+                  readOnly={emailLocked}
+                  className={`mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none ${emailLocked ? "bg-gray-50 text-brand-muted" : ""}`}
                   placeholder="you@example.com" />
+                {emailLocked && <p className="mt-1 text-xs text-brand-muted">Use this email to claim your invitation.</p>}
               </div>
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-brand-dark">Password</label>

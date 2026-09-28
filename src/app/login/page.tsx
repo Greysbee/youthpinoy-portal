@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Navbar from "@/components/navbar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase-client";
 import { useRouter } from "next/navigation";
 
@@ -17,7 +17,20 @@ export default function LoginPage() {
   const [resetLoading, setResetLoading] = useState(false);
   const [magicLoading, setMagicLoading] = useState(false);
   const [magicSent, setMagicSent] = useState(false);
+  const [nextUrl, setNextUrl] = useState("/library");
+  const [emailLocked, setEmailLocked] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const n = p.get("next");
+    if (n) setNextUrl(n);
+    const em = p.get("email");
+    if (em) {
+      setEmail(em);
+      setEmailLocked(true);
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,7 +46,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/library");
+    router.push(nextUrl);
     router.refresh();
   }
 
@@ -48,7 +61,7 @@ export default function LoginPage() {
     const { error: otpError } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/confirm?next=/library`,
+        emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(nextUrl)}`,
       },
     });
     if (otpError) {
@@ -137,7 +150,8 @@ export default function LoginPage() {
                   <div>
                     <label htmlFor="email" className="block text-sm font-medium text-brand-dark">Email</label>
                     <input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                      className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none"
+                      readOnly={emailLocked}
+                      className={`mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none ${emailLocked ? "bg-gray-50 text-brand-muted" : ""}`}
                       placeholder="you@example.com" />
                   </div>
                   <div>

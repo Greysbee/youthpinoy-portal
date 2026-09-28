@@ -29,7 +29,9 @@ Open http://localhost:3000.
 | `PAYMONGO_SECRET_KEY` | **Server only.** PayMongo secret key (`sk_test_…` / `sk_live_…`). Test vs live is inferred from this prefix. |
 | `NEXT_PUBLIC_PAYMONGO_PUBLIC_KEY` | PayMongo public key (`pk_test_…`). |
 | `PAYMONGO_WEBHOOK_SECRET` | **Server only.** Signing secret (`whsec_…`) for the registered webhook; used to verify `Paymongo-Signature`. |
-| `NEXT_PUBLIC_SITE_URL` | Base URL for PayMongo success/cancel redirects (e.g. `http://localhost:3000`). |
+| `NEXT_PUBLIC_SITE_URL` | Base URL for PayMongo success/cancel redirects and invite links (e.g. `http://localhost:3000`). |
+| `RESEND_API_KEY` | **Server only.** Resend key for group-invite emails. |
+| `RESEND_FROM` | Sender, e.g. `YouthPinoy CSMS <noreply@youthpinoy.com>`. The domain must be **verified in Resend** or sends fail (invite records are still created). |
 
 Supabase MCP is scoped to this project via [`.mcp.json`](.mcp.json) (`--project-ref`)
 with the token in the `SUPABASE_ACCESS_TOKEN` env var.
@@ -195,3 +197,39 @@ For GCash/e-wallets in test mode, PayMongo shows an "Authorize test payment" but
    (visible on the buyer's **/admin/participants** detail) — invites come in M4.
 5. Security: access is granted only by the verified webhook. The success page never
    grants; a `pending` order simply keeps polling.
+
+## Milestone 4 — groups + invited sub-accounts
+
+- **/account** — profile edit, **My access** (events you can watch + why), **My
+  events**, **My groups** (manage the seats you bought), and **Member of** (groups
+  you belong to, and who manages them).
+- **Group owner** can rename the group, invite emails up to `seats_total − 1`
+  (owner holds one seat), remove/replace unjoined invites, resend invites, and copy
+  the invite link. Seat usage is shown (e.g. "2 of 3 seats used").
+- **Inviting an email** finds-or-creates a participant by normalized email, grants a
+  `group_seat` entitlement **immediately** (access before signup), creates a
+  `group_members` row with a random `invite_token`, and emails a link to
+  `/invite/[token]` via Resend.
+- **/invite/[token]** — if logged out, prompts sign-up/login with the email
+  prefilled and locked; on signup the profile→participant trigger **auto-joins** the
+  invite; an existing account with a matching email accepts explicitly. The person
+  keeps their own independent account; the group link persists.
+- **Removing a member** revokes that seat's entitlement (`revoked_at`) and frees the
+  seat.
+
+### Milestone 4 — manual test script
+
+1. Buy a paid event with **quantity ≥ 2** (Milestone 3) so a group is created, or use
+   an existing owned group. Open **/account** → your group shows under **My groups**.
+2. Enter an email under the group → **Invite**. It appears as **invited** with
+   **Copy link / Resend / Remove**, and seat usage increments. (If your Resend
+   domain isn't verified yet, you'll see a notice that the email failed — the invite
+   is still created; use **Copy link**.)
+3. Open the invite link in a logged-out browser → sign up with the shown email →
+   you're auto-joined and the event's videos are unlocked in **/library**.
+4. Back as the owner, **Remove** that member → their seat frees up and their access
+   to that event is revoked.
+
+> To actually deliver invite emails, verify your sending domain at
+> https://resend.com/domains (or set `RESEND_FROM` to `onboarding@resend.dev` for
+> quick tests, which can only send to your own Resend account email).
