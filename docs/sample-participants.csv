@@ -1,0 +1,7 @@
+email,full_name,phone,organization,events,all_access
+juan.delacruz@example.com,Juan dela Cruz,09171234567,St. Mary Parish,"CSMSv8, CSMSv9",
+maria.santos@example.com,Maria Santos,,Diocese of Cubao,v12,
+pedro.reyes@example.com,Pedro Reyes,,,,yes
+ANA.LIM@example.com,Ana Lim,,,"12, 13",
+ana.lim@example.com,Ana Lim Duplicate,,,CSMSv99,
+not-an-email,Bad Row,,,CSMSv8,

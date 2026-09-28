@@ -86,5 +86,46 @@ All test accounts use the password **`CsmsTest!2026`**:
 9. Magic link: on /login, enter an email and click **Email me a magic link**.
    (Delivery depends on the project's Auth email settings; the confirmation link
    lands on `/auth/confirm` and signs you in.)
-10. Admin check: log in as **admin@csms.test** and open **/admin** (existing admin
-    area; the participant-model admin UI comes in Milestone 2).
+10. Admin check: log in as **admin@csms.test** and open **/admin/events**.
+
+## Milestone 2 — admin backend + participant import
+
+Admin sections (admin role only) under `/admin`: **Events**, **Videos**,
+**Participants**, **Import**, **Orders**. All writes run server-side via server
+actions using the service-role client behind `requireAdmin()`.
+
+- **Events** — create/edit/publish, price/capacity/dates/cover, an "Includes access
+  to" multi-select (writes `event_includes`), and a registration-question builder.
+- **Videos** — create/edit, assign to event, free toggle, reorder (↑/↓), provider +
+  ref; **CSV bulk import** at `/admin/videos/import`.
+- **Participants** — search by name/email; detail shows entitlements, registrations,
+  orders, and groups; manual grant/revoke of event or all-access.
+- **Import** (`/admin/import`) — upload CSV(s) → map columns → preview → commit.
+  Deduped by normalized email across files and existing rows; existing values kept,
+  blanks filled; event columns parse `CSMSv12` / `v12` / `12` / `CSMS 12` / lists;
+  `legacy_import` entitlements created; a merge report (new / merged / duplicates /
+  invalid emails / unmapped events) is shown and downloadable as CSV. **Idempotent.**
+
+### Milestone 2 — manual test script
+
+Log in as **admin@csms.test** (`CsmsTest!2026`).
+
+1. **/admin/events** → 9 events listed with prices (v8 Free, v12 ₱1,500, v16 ₱2,500).
+   Open **CSMSv12 → Edit** → confirm "Includes access to" has v8–v11 checked.
+2. **+ New Event** → fill code/title/price, add a registration question, check a few
+   "includes", Save → it appears in the list.
+3. **/admin/videos** → 18 videos grouped by event; try the ↑/↓ reorder on a pair.
+4. **/admin/videos/import** → upload a CSV with columns
+   `title,event_code,provider,provider_ref,is_free,thumbnail_url,sort_order`
+   → see the inserted/skipped report.
+5. **/admin/import** → upload [`docs/sample-participants.csv`](docs/sample-participants.csv)
+   → columns auto-map → **Commit**. Expect: 6 rows, 4 unique, 3 new + (ana.lim
+   deduped), 1 invalid (`not-an-email`), 1 unmapped event (`CSMSv99`), all-access for
+   Pedro. **Download report CSV.** Re-commit the same file → **0 new, 0 entitlements
+   created** (idempotent).
+6. **/admin/participants** → search "maria" → open her → she has CSMSv12 (which
+   cascades to v8–v11). Click **Grant all-access**, then **Revoke** it.
+7. **/admin/orders** → empty (payments arrive in Milestone 3).
+
+> Note: importing `sample-participants.csv` creates real participant rows in your DB.
+> Delete them from **/admin/participants** (or via SQL) afterward if you want a clean slate.
