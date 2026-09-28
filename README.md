@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CSMS Portal (youthpinoy-portal)
 
-## Getting Started
+Participant portal for the Catholic Social Media Summit (CSMS): one participant
+database, a gated video library, event registration + payments, and group tickets.
+Built on **Next.js 16** (App Router) + **Supabase** (Postgres, Auth, RLS).
 
-First, run the development server:
+> Access is keyed to the **participant** (by normalized email), not the auth user.
+> A participant row + entitlements can exist before anyone signs up; when they
+> create a login (or accept an invite) with the same email, the account links to
+> that participant and inherits everything. All access logic lives in
+> [`src/lib/access.ts`](src/lib/access.ts) and the SQL helpers it calls.
+
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Environment variables (`.env.local`)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (browser + server) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (browser + server, RLS-scoped) |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Server only.** Bypasses RLS; used by `createAdminClient()` for access grants and reading secret columns (`videos.provider_ref`). Never exposed to the browser. |
 
-## Learn More
+Supabase MCP is scoped to this project via [`.mcp.json`](.mcp.json) (`--project-ref`)
+with the token in the `SUPABASE_ACCESS_TOKEN` env var.
 
-To learn more about Next.js, take a look at the following resources:
+## Database
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Migrations live in [`supabase/migrations/`](supabase/migrations) and are applied via
+the Supabase MCP (`apply_migration`). Milestone 1 added the participant/event model
+**alongside** the original `courses/lessons/enrollments` tables (which still run):
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `participants`, `events`, `event_includes`, `videos`, `entitlements`,
+  `registrations`, `orders`, `groups`, `group_members`
+- Helpers: `accessible_event_ids(participant)` (direct + transitive `event_includes`
+  + `all_access`), `can_watch(participant, video)`, `is_admin()`,
+  `current_participant_id()`
+- Trigger: on profile insert, find-or-create the participant by normalized email,
+  link it, and auto-join any pending group invites for that email.
 
-## Deploy on Vercel
+### Video security
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+A playable URL is **only** produced server-side by `getPlaybackUrl()` when
+`can_watch()` is true. `videos.provider_ref` is hidden from `anon`/`authenticated`
+by column grants, so the browser never receives a playable reference for a locked
+video. The player is structured so Bunny signed/token URLs can be swapped in later
+inside `buildEmbedUrl()` without touching any page.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Seed / test accounts
+
+Seeded by [`supabase/seed.sql`](supabase/seed.sql): events CSMSv8–v16 (v12 includes
+v8–v11; v16 includes all prior), 2 videos per event (Session 1 = free preview,
+Session 2 = locked).
+
+All test accounts use the password **`CsmsTest!2026`**:
+
+| Email | Role | Access |
+| --- | --- | --- |
+| `admin@csms.test` | admin | (admin) |
+| `member1@csms.test` | member | CSMSv8 only |
+| `member2@csms.test` | member | CSMSv12 → unlocks v8–v12 (via includes) |
+| `member3@csms.test` | member | all-access → every event |
+
+## Milestone 1 — manual test script
+
+1. Open http://localhost:3000/library while logged out → you're redirected to
+   **/login?next=/library**.
+2. Log in as **member1@csms.test** / `CsmsTest!2026`. You land on **/library**.
+3. In the library you should see events grouped **newest first (v16 → v8)**. Every
+   **Session 1** is badged **Free**; every **Session 2** is **Locked** — *except*
+   **CSMSv8 — Session 2**, which is **Unlocked** (member1's only entitlement).
+4. Click **CSMSv8 — Session 2** (Unlocked) → the Vimeo player loads.
+5. Go back and click **CSMSv9 — Session 2** (Locked) → you see "This session is
+   locked" + a **Get access** button, and **no video player**.
+6. Click any **Session 1 (Free Preview)** on any event → it plays for everyone.
+7. Log out, log in as **member2@csms.test** → now **CSMSv8–CSMSv12** Session 2s are
+   Unlocked (v12 entitlement cascades to v8–v11); v13–v16 Session 2 stay Locked.
+8. Log out, log in as **member3@csms.test** → **every** Session 2 is Unlocked
+   (all-access).
+9. Magic link: on /login, enter an email and click **Email me a magic link**.
+   (Delivery depends on the project's Auth email settings; the confirmation link
+   lands on `/auth/confirm` and signs you in.)
+10. Admin check: log in as **admin@csms.test** and open **/admin** (existing admin
+    area; the participant-model admin UI comes in Milestone 2).

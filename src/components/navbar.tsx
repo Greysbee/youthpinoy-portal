@@ -47,8 +47,8 @@ export default function Navbar() {
             Courses
           </Link>
           {user && (
-            <Link href="/dashboard" className="hover:text-brand-gold transition-colors">
-              Virtual Library
+            <Link href="/library" className="hover:text-brand-gold transition-colors">
+              Library
             </Link>
           )}
           {(role === "admin" || role === "moderator" || role === "instructor") && (
@@ -103,8 +103,8 @@ export default function Navbar() {
               Courses
             </Link>
             {user && (
-              <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-3 hover:bg-white/10">
-                Virtual Library
+              <Link href="/library" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-3 hover:bg-white/10">
+                Library
               </Link>
             )}
             {(role === "admin" || role === "moderator" || role === "instructor") && (

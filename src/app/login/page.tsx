@@ -15,6 +15,8 @@ export default function LoginPage() {
   const [showForgot, setShowForgot] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
+  const [magicLoading, setMagicLoading] = useState(false);
+  const [magicSent, setMagicSent] = useState(false);
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -31,8 +33,31 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/library");
     router.refresh();
+  }
+
+  async function handleMagicLink() {
+    setError("");
+    if (!email) {
+      setError("Enter your email first, then request a magic link.");
+      return;
+    }
+    setMagicLoading(true);
+    const supabase = createClient();
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/confirm?next=/library`,
+      },
+    });
+    if (otpError) {
+      setError(otpError.message);
+      setMagicLoading(false);
+      return;
+    }
+    setMagicSent(true);
+    setMagicLoading(false);
   }
 
   async function handleForgotPassword(e: React.FormEvent) {
@@ -132,6 +157,30 @@ export default function LoginPage() {
                     {loading ? "Logging In..." : "Log In"}
                   </button>
                 </form>
+
+                <div className="mt-6 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-gray-200" />
+                  <span className="text-xs text-brand-muted">or</span>
+                  <div className="h-px flex-1 bg-gray-200" />
+                </div>
+
+                {magicSent ? (
+                  <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-4 text-center">
+                    <p className="text-sm font-medium text-emerald-700">Magic link sent!</p>
+                    <p className="mt-1 text-xs text-emerald-600">
+                      Check {email} for a link to log in. You can close this tab.
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleMagicLink}
+                    disabled={magicLoading}
+                    className="mt-4 w-full min-h-11 rounded-lg border border-brand-blue px-4 py-2.5 text-sm font-semibold text-brand-blue hover:bg-brand-blue/5 transition-colors disabled:opacity-50"
+                  >
+                    {magicLoading ? "Sending link..." : "Email me a magic link"}
+                  </button>
+                )}
 
                 <p className="mt-6 text-center text-sm text-brand-muted">
                   Don&apos;t have an account?{" "}
