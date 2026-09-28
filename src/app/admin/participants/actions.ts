@@ -42,3 +42,28 @@ export async function revokeEntitlement(formData: FormData): Promise<void> {
     .eq("id", id);
   revalidatePath(`/admin/participants/${participant_id}`);
 }
+
+// Promote/demote a member's linked account. Only super_admins can grant or remove
+// super_admin. Stored role is one of member/admin/super_admin (participant is
+// computed from activity, never stored here).
+export async function setRole(formData: FormData): Promise<void> {
+  const { admin, userId } = await requireAdmin();
+  const participant_id = formData.get("participant_id") as string;
+  const role = formData.get("role") as string;
+  if (!participant_id || !["member", "admin", "super_admin"].includes(role)) return;
+
+  const { data: caller } = await admin.from("profiles").select("role").eq("id", userId).single();
+  const { data: target } = await admin
+    .from("profiles")
+    .select("id, role")
+    .eq("participant_id", participant_id)
+    .maybeSingle();
+  if (!target) return; // no linked account to assign a role to
+
+  // Only super_admins may set or change the super_admin role.
+  const touchesSuper = role === "super_admin" || target.role === "super_admin";
+  if (touchesSuper && caller?.role !== "super_admin") return;
+
+  await admin.from("profiles").update({ role }).eq("id", target.id);
+  revalidatePath(`/admin/participants/${participant_id}`);
+}

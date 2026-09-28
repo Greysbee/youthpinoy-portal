@@ -20,7 +20,7 @@ export async function requireAdmin(): Promise<{
     .select("role")
     .eq("id", user.id)
     .single();
-  if (profile?.role !== "admin") redirect("/");
+  if (!profile || !["admin", "super_admin"].includes(profile.role)) redirect("/");
 
   return { admin: createAdminClient(), userId: user.id };
 }

@@ -5,16 +5,13 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase-client";
 
+const ADMIN = ["admin", "super_admin"];
 const allNavItems = [
-  { href: "/admin/events", label: "Events", icon: "🗓️", roles: ["admin"] },
-  { href: "/admin/videos", label: "Videos", icon: "🎬", roles: ["admin"] },
-  { href: "/admin/participants", label: "Participants", icon: "🙋", roles: ["admin"] },
-  { href: "/admin/import", label: "Import", icon: "📥", roles: ["admin"] },
-  { href: "/admin/orders", label: "Orders", icon: "🧾", roles: ["admin"] },
-  { href: "/admin/emails", label: "Emails", icon: "✉️", roles: ["admin"] },
-  { href: "/admin", label: "Courses (legacy)", icon: "📚", roles: ["admin", "moderator", "instructor"] },
-  { href: "/admin/enrollments", label: "Enrollments (legacy)", icon: "👥", roles: ["admin", "moderator"] },
-  { href: "/admin/users", label: "Users & Roles", icon: "🔑", roles: ["admin"] },
+  { href: "/admin/videos", label: "Library", icon: "🎬", roles: ADMIN },
+  { href: "/admin/events", label: "Events", icon: "🗓️", roles: ADMIN },
+  { href: "/admin/members", label: "Members", icon: "🙋", roles: ADMIN },
+  { href: "/admin/emails", label: "Emails", icon: "✉️", roles: ADMIN },
+  { href: "/account", label: "Account", icon: "👤", roles: ADMIN },
 ];
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
@@ -39,7 +36,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     return <div className="flex min-h-screen items-center justify-center"><p className="text-brand-muted">Loading...</p></div>;
   }
 
-  if (!role || role === "student") {
+  if (!role || !ADMIN.includes(role)) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
         <div className="text-center">

@@ -2,7 +2,7 @@ import Link from "next/link";
 import AdminShell from "@/components/admin-shell";
 import { requireAdmin, centavosToPesos } from "@/lib/admin";
 import { notFound } from "next/navigation";
-import { grantEntitlement, revokeEntitlement } from "../actions";
+import { grantEntitlement, revokeEntitlement, setRole } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +12,20 @@ export default async function ParticipantDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { admin } = await requireAdmin();
+  const { admin, userId } = await requireAdmin();
 
   const { data: p } = await admin.from("participants").select("*").eq("id", id).single();
   if (!p) notFound();
+
+  const { data: linkedProfile } = await admin
+    .from("profiles")
+    .select("id, role")
+    .eq("participant_id", id)
+    .maybeSingle();
+  const { data: caller } = await admin.from("profiles").select("role").eq("id", userId).single();
+  const storedRole = linkedProfile?.role;
+  const roleLabel =
+    storedRole === "super_admin" ? "Super Admin" : storedRole === "admin" ? "Admin" : "Member";
 
   const [{ data: entitlements }, { data: registrations }, { data: orders }, { data: events }, { data: ownedGroups }, { data: memberships }] =
     await Promise.all([
@@ -43,7 +53,7 @@ export default async function ParticipantDetailPage({
 
   return (
     <AdminShell>
-      <Link href="/admin/participants" className="text-sm text-brand-muted hover:text-brand-dark">← Participants</Link>
+      <Link href="/admin/members" className="text-sm text-brand-muted hover:text-brand-dark">← Members</Link>
       <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-brand-dark">{p.full_name || p.email}</h1>
@@ -53,6 +63,43 @@ export default async function ParticipantDetailPage({
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
+        {/* Role & access level */}
+        <div className={card}>
+          <h2 className={h2}>Role &amp; access level</h2>
+          {linkedProfile ? (
+            <>
+              <p className="mt-3 text-sm">
+                Current role: <span className="font-semibold">{roleLabel}</span>
+              </p>
+              <form action={setRole} className="mt-3 flex flex-wrap items-center gap-2">
+                <input type="hidden" name="participant_id" value={id} />
+                <select
+                  name="role"
+                  defaultValue={storedRole === "super_admin" ? "super_admin" : storedRole === "admin" ? "admin" : "member"}
+                  className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+                >
+                  <option value="member">Member</option>
+                  <option value="admin">Admin</option>
+                  {caller?.role === "super_admin" && <option value="super_admin">Super Admin</option>}
+                </select>
+                <button className="rounded-lg bg-brand-blue px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-dark">
+                  Update role
+                </button>
+              </form>
+              <p className="mt-2 text-xs text-brand-muted">
+                {caller?.role === "super_admin"
+                  ? "Members auto-show as “Participant” once they register for an event."
+                  : "Only a super admin can assign the super admin role."}
+              </p>
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-brand-muted">
+              No login yet — this person hasn&apos;t created an account. They become a Member (and a
+              Participant once they register) when they sign up with {p.email}.
+            </p>
+          )}
+        </div>
+
         {/* Entitlements + grant */}
         <div className={card}>
           <h2 className={h2}>Entitlements</h2>

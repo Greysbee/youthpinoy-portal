@@ -54,7 +54,7 @@ export default function Navbar() {
               Account
             </Link>
           )}
-          {(role === "admin" || role === "moderator" || role === "instructor") && (
+          {(role === "admin" || role === "super_admin") && (
             <Link href="/admin" className="hover:text-brand-gold transition-colors">
               Admin
             </Link>
@@ -112,7 +112,7 @@ export default function Navbar() {
                 Account
               </Link>
             )}
-            {(role === "admin" || role === "moderator" || role === "instructor") && (
+            {(role === "admin" || role === "super_admin") && (
               <Link href="/admin" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-3 hover:bg-white/10">
                 Admin
               </Link>

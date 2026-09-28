@@ -28,9 +28,14 @@ export default async function AdminEventsPage() {
           <h1 className="text-2xl font-bold text-brand-dark">Events</h1>
           <p className="mt-1 text-brand-muted">CSMS events and their video packages.</p>
         </div>
-        <Link href="/admin/events/new" className="inline-flex min-h-11 items-center rounded-lg bg-brand-gold px-5 py-2.5 text-sm font-bold text-brand-dark hover:bg-amber-400">
-          + New Event
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/admin/orders" className="inline-flex min-h-11 items-center rounded-lg border border-brand-blue px-4 py-2.5 text-sm font-semibold text-brand-blue hover:bg-brand-blue/5">
+            View orders
+          </Link>
+          <Link href="/admin/events/new" className="inline-flex min-h-11 items-center rounded-lg bg-brand-gold px-5 py-2.5 text-sm font-bold text-brand-dark hover:bg-amber-400">
+            + New Event
+          </Link>
+        </div>
       </div>
 
       {(events ?? []).length === 0 ? (
