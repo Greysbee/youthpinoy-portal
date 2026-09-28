@@ -10,12 +10,13 @@ type CourseCardProps = {
     lessonCount: number;
     type?: string;
   };
+  href?: string;
 };
 
-export default function CourseCard({ course }: CourseCardProps) {
+export default function CourseCard({ course, href }: CourseCardProps) {
   return (
     <Link
-      href={`/courses/${course.id}`}
+      href={href ?? `/courses/${course.id}`}
       className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all hover:shadow-lg hover:-translate-y-0.5"
     >
       <div className="relative aspect-video bg-gradient-to-br from-brand-blue to-brand-accent flex items-center justify-center overflow-hidden">

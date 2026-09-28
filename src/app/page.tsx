@@ -6,29 +6,65 @@ import CourseCard from "@/components/course-card";
 import { createClient } from "@/lib/supabase-client";
 import { useEffect, useState } from "react";
 
-type CourseRow = {
-  id: string;
+type CardItem = {
+  key: string;
+  href: string;
   title: string;
-  description: string | null;
+  description: string;
   cover_image_url: string | null;
   price: number;
+  lessonCount: number;
   type: string;
-  lessons: { id: string }[];
+  createdAt: string;
 };
 
 export default function HomePage() {
-  const [courses, setCourses] = useState<CourseRow[]>([]);
+  const [items, setItems] = useState<CardItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       const supabase = createClient();
-      const { data } = await supabase
-        .from("courses")
-        .select("id, title, description, cover_image_url, price, type, lessons(id)")
-        .eq("is_published", true)
-        .order("created_at", { ascending: false });
-      setCourses(data ?? []);
+
+      const [{ data: courses }, { data: events }] = await Promise.all([
+        supabase
+          .from("courses")
+          .select("id, title, description, cover_image_url, price, type, created_at, lessons(id)")
+          .eq("is_published", true),
+        supabase
+          .from("events")
+          .select("id, title, slug, description, cover_image_url, price_centavos, created_at, videos(id)")
+          .eq("status", "published"),
+      ]);
+
+      const courseItems: CardItem[] = (courses ?? []).map((c) => ({
+        key: `course-${c.id}`,
+        href: `/courses/${c.id}`,
+        title: c.title,
+        description: c.description ?? "",
+        cover_image_url: c.cover_image_url,
+        price: Number(c.price ?? 0),
+        lessonCount: c.lessons?.length ?? 0,
+        type: c.type ?? "course",
+        createdAt: c.created_at ?? "",
+      }));
+
+      const eventItems: CardItem[] = (events ?? []).map((e) => ({
+        key: `event-${e.id}`,
+        href: `/events/${e.slug}`,
+        title: e.title,
+        description: e.description ?? "",
+        cover_image_url: e.cover_image_url,
+        price: (e.price_centavos ?? 0) / 100,
+        lessonCount: e.videos?.length ?? 0,
+        type: "event",
+        createdAt: e.created_at ?? "",
+      }));
+
+      const merged = [...eventItems, ...courseItems].sort((a, b) =>
+        (b.createdAt ?? "").localeCompare(a.createdAt ?? "")
+      );
+      setItems(merged);
       setLoading(false);
     }
     load();
@@ -50,28 +86,29 @@ export default function HomePage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
-          <h2 className="text-2xl font-bold text-brand-dark">Available Courses and Events</h2>
-          <p className="mt-1 text-brand-muted">Browse our digital masterclasses and start learning today.</p>
+          <h2 className="text-2xl font-bold text-brand-dark">Courses and Events</h2>
+          <p className="mt-1 text-brand-muted">Browse our digital masterclasses and summits — start learning today.</p>
 
           {loading ? (
             <p className="mt-8 text-brand-muted">Loading...</p>
-          ) : courses.length === 0 ? (
+          ) : items.length === 0 ? (
             <div className="mt-12 rounded-xl border-2 border-dashed border-gray-300 py-16 text-center">
-              <p className="text-brand-muted">No courses available yet. Check back soon!</p>
+              <p className="text-brand-muted">Nothing available yet. Check back soon!</p>
             </div>
           ) : (
             <div className="mt-8 grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-              {courses.map((course) => (
+              {items.map((item) => (
                 <CourseCard
-                  key={course.id}
+                  key={item.key}
+                  href={item.href}
                   course={{
-                    id: course.id,
-                    title: course.title,
-                    description: course.description ?? "",
-                    cover_image_url: course.cover_image_url,
-                    price: course.price,
-                    type: course.type,
-                    lessonCount: course.lessons?.length ?? 0,
+                    id: item.key,
+                    title: item.title,
+                    description: item.description,
+                    cover_image_url: item.cover_image_url,
+                    price: item.price,
+                    type: item.type,
+                    lessonCount: item.lessonCount,
                   }}
                 />
               ))}

@@ -44,12 +44,6 @@ export default function Navbar() {
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
-          <Link href="/" className="hover:text-brand-gold transition-colors">
-            Courses
-          </Link>
-          <Link href="/events" className="hover:text-brand-gold transition-colors">
-            Events
-          </Link>
           {user && (
             <Link href="/library" className="hover:text-brand-gold transition-colors">
               Library
@@ -108,12 +102,6 @@ export default function Navbar() {
       {mobileOpen && (
         <nav className="border-t border-white/10 px-4 pb-4 pt-2 md:hidden">
           <div className="flex flex-col gap-2">
-            <Link href="/" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-3 hover:bg-white/10">
-              Courses
-            </Link>
-            <Link href="/events" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-3 hover:bg-white/10">
-              Events
-            </Link>
             {user && (
               <Link href="/library" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-3 hover:bg-white/10">
                 Library
