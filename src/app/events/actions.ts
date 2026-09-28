@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { createCheckoutSession } from "@/lib/paymongo";
+import { sendEmail } from "@/lib/email";
 
 export type RegState = { error?: string };
 
@@ -47,7 +48,7 @@ export async function registerFree(_prev: RegState, formData: FormData): Promise
   const admin = createAdminClient();
   const { data: event } = await admin
     .from("events")
-    .select("id, price_centavos, status, registration_fields")
+    .select("id, title, slug, price_centavos, status, registration_fields, start_at, end_at, is_online, venue")
     .eq("id", eventId)
     .single();
   if (!event || event.status !== "published") return { error: "Event not available." };
@@ -69,6 +70,29 @@ export async function registerFree(_prev: RegState, formData: FormData): Promise
       answers,
       status: "confirmed",
     });
+
+    // Confirmation email (non-fatal, idempotent per event+recipient).
+    const { data: pt } = await admin
+      .from("participants")
+      .select("email")
+      .eq("id", viewer.participantId)
+      .single();
+    if (pt?.email) {
+      await sendEmail({
+        type: "event_registered",
+        to: pt.email,
+        refId: eventId,
+        participantId: viewer.participantId,
+        data: {
+          eventTitle: event.title,
+          slug: event.slug,
+          startAt: event.start_at,
+          endAt: event.end_at,
+          isOnline: event.is_online,
+          venue: event.venue,
+        },
+      });
+    }
   }
 
   const { data: ent } = await admin

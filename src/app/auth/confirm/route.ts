@@ -1,6 +1,7 @@
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { sendWelcome } from "@/lib/email";
 
 // Magic-link / email-OTP confirmation endpoint. Supabase emails a link pointing
 // here with a token_hash + type; we verify it, which sets the session cookies,
@@ -15,6 +16,24 @@ export async function GET(request: NextRequest) {
     const supabase = await createServerSupabaseClient();
     const { error } = await supabase.auth.verifyOtp({ type, token_hash });
     if (!error) {
+      // Account is now confirmed/active → send the welcome email (idempotent).
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("participant_id, email, full_name")
+          .eq("id", user.id)
+          .single();
+        if (profile?.participant_id) {
+          await sendWelcome({
+            participantId: profile.participant_id,
+            email: profile.email ?? user.email ?? "",
+            fullName: profile.full_name,
+          });
+        }
+      }
       return NextResponse.redirect(new URL(next, request.url));
     }
   }

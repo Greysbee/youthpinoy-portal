@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { getViewer } from "@/lib/viewer";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { normalizeEmail, isValidEmail } from "@/lib/admin";
-import { sendEmail, inviteEmailHtml } from "@/lib/email";
+import { deliver, inviteEmailHtml, sendEmail } from "@/lib/email";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type ActionState = { error?: string; notice?: string };
@@ -131,7 +131,7 @@ export async function addGroupMember(_prev: ActionState, formData: FormData): Pr
     await admin.from("participants").select("full_name, email").eq("id", group.owner_participant_id).single()
   ).data;
 
-  const send = await sendEmail({
+  const send = await deliver({
     to: email,
     subject: `You're invited to ${ev?.code ?? "an event"} on YouthPinoy`,
     html: inviteEmailHtml({
@@ -200,7 +200,7 @@ export async function resendInvite(formData: FormData): Promise<void> {
   const owner = (
     await admin.from("participants").select("full_name, email").eq("id", viewer.participantId).single()
   ).data;
-  await sendEmail({
+  await deliver({
     to: member.email,
     subject: `Reminder: you're invited to ${ev?.code ?? "an event"} on YouthPinoy`,
     html: inviteEmailHtml({
@@ -221,7 +221,7 @@ export async function acceptInvite(_prev: ActionState, formData: FormData): Prom
   const admin = createAdminClient();
   const { data: member } = await admin
     .from("group_members")
-    .select("id, email, status, group_id, groups(event_id)")
+    .select("id, email, status, group_id, groups(id, event_id, name, seats_total, owner_participant_id)")
     .eq("invite_token", token)
     .single();
   if (!member) return { error: "This invite is not valid." };
@@ -235,7 +235,9 @@ export async function acceptInvite(_prev: ActionState, formData: FormData): Prom
     .eq("id", member.id);
 
   // Ensure the seat entitlement is active (it was created at invite time).
-  const grp = member.groups as { event_id?: string } | null;
+  const grp = member.groups as
+    | { id?: string; event_id?: string; name?: string; seats_total?: number; owner_participant_id?: string }
+    | null;
   if (grp?.event_id) {
     const { data: ent } = await admin
       .from("entitlements")
@@ -251,6 +253,35 @@ export async function acceptInvite(_prev: ActionState, formData: FormData): Prom
         event_id: grp.event_id,
         type: "event",
         source: "group_seat",
+      });
+    }
+  }
+
+  // Notify the group owner (idempotent per member).
+  if (grp?.owner_participant_id && grp.id) {
+    const { data: owner } = await admin
+      .from("participants")
+      .select("email, full_name")
+      .eq("id", grp.owner_participant_id)
+      .single();
+    const { count: usedCount } = await admin
+      .from("group_members")
+      .select("id", { count: "exact", head: true })
+      .eq("group_id", grp.id)
+      .neq("status", "removed");
+    if (owner?.email) {
+      await sendEmail({
+        type: "group_joined",
+        to: owner.email,
+        refId: member.id,
+        participantId: grp.owner_participant_id,
+        data: {
+          memberName: viewer!.fullName || member.email,
+          groupName: grp.name ?? "your group",
+          seatsUsed: (usedCount ?? 0) + 1, // +1 for the owner's own seat
+          seatsTotal: grp.seats_total ?? 0,
+          groupId: grp.id,
+        },
       });
     }
   }

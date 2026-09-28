@@ -11,6 +11,7 @@ const allNavItems = [
   { href: "/admin/participants", label: "Participants", icon: "🙋", roles: ["admin"] },
   { href: "/admin/import", label: "Import", icon: "📥", roles: ["admin"] },
   { href: "/admin/orders", label: "Orders", icon: "🧾", roles: ["admin"] },
+  { href: "/admin/emails", label: "Emails", icon: "✉️", roles: ["admin"] },
   { href: "/admin", label: "Courses (legacy)", icon: "📚", roles: ["admin", "moderator", "instructor"] },
   { href: "/admin/enrollments", label: "Enrollments (legacy)", icon: "👥", roles: ["admin", "moderator"] },
   { href: "/admin/users", label: "Users & Roles", icon: "🔑", roles: ["admin"] },

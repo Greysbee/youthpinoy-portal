@@ -1,0 +1,19 @@
+<!-- Supabase → Authentication → Email Templates → "Confirm signup"
+     Replace https://portal.youthpinoy.org with your real portal domain. -->
+<div style="background:#f3f4f6;padding:24px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+  <div style="max-width:560px;margin:0 auto">
+    <div style="background:#033A7A;padding:24px;text-align:center;border-radius:8px 8px 0 0">
+      <img src="https://portal.youthpinoy.org/email/youthpinoy-email-logo.png" width="280" alt="YouthPinoy" style="margin:0 auto" />
+    </div>
+    <div style="background:#ffffff;padding:32px;color:#1a1a1a;font-size:16px;line-height:1.6">
+      <h2 style="color:#033A7A;margin-top:0">Confirm your email</h2>
+      <p>Thanks for signing up for the YouthPinoy Portal. Confirm your email address to activate your account.</p>
+      <p><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#033A7A;color:#ffffff;padding:12px 22px;border-radius:6px;text-decoration:none;font-weight:600">Confirm email</a></p>
+      <p style="color:#6b7280;font-size:13px">If the button doesn't work, copy and paste this link:<br>{{ .ConfirmationURL }}</p>
+    </div>
+    <div style="padding:16px 32px;color:#6b7280;font-size:12px;line-height:1.6">
+      YouthPinoy · Catholic Social Media Summit<br>
+      You're receiving this because this email was used to sign up for the YouthPinoy Portal.
+    </div>
+  </div>
+</div>

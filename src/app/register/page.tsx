@@ -46,6 +46,9 @@ export default function RegisterPage() {
     });
 
     if (signUpError) { setError(signUpError.message); setLoading(false); return; }
+    // If a session exists (email confirmation OFF), fire the welcome email now.
+    // If confirmation is ON, /auth/confirm handles it after the user confirms.
+    try { await fetch("/api/welcome", { method: "POST" }); } catch { /* non-fatal */ }
     router.push(nextUrl);
     router.refresh();
   }

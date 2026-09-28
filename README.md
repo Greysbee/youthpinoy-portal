@@ -233,3 +233,31 @@ For GCash/e-wallets in test mode, PayMongo shows an "Authorize test payment" but
 > To actually deliver invite emails, verify your sending domain at
 > https://resend.com/domains (or set `RESEND_FROM` to `onboarding@resend.dev` for
 > quick tests, which can only send to your own Resend account email).
+
+## Transactional email
+
+Branded emails via Resend + React Email (templates in [`/emails`](emails)):
+**welcome**, **event_registered** (with `.ics`), **order_paid** (with `.ics`, group
+button when qty > 1), and **group_joined**. One idempotent, logging, never-throwing
+sender lives in [`src/lib/email.tsx`](src/lib/email.tsx) (`sendEmail({type, to,
+refId, participantId, data})`), backed by the `email_log` table
+(`UNIQUE(type, ref_id, to_email)`), so webhook retries never double-send and a mail
+failure never breaks signup / registration / payment.
+
+Triggers: welcome (after profile↔participant link, via `/auth/confirm` and
+`/api/welcome`), event_registered (free registration), order_paid (verified PayMongo
+webhook only), group_joined (invite accepted). Preview + send-test at
+**/admin/emails**.
+
+Full setup — logo asset, `EMAIL_FROM`/`EMAIL_REPLY_TO`, Resend domain verification,
+**SPF/DKIM/DMARC** records, Supabase **SMTP** settings, and the restyled Supabase
+**auth email templates** — is in [`docs/email/SETUP.md`](docs/email/SETUP.md).
+
+### Email test script
+1. Sign up a new user → **welcome** arrives (lists unlocked editions for legacy
+   attendees, else the free-videos nudge).
+2. Register for a free event → **confirmation** + `.ics` attachment.
+3. Buy 3 tickets in PayMongo test mode → **payment** email with the "Set up my group"
+   button; replay the same webhook → **no duplicate** email.
+4. Accept an invite → the group **owner** gets **group_joined**.
+5. `/admin/emails` → preview each template and "Send test to me".

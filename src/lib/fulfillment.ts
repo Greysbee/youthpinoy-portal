@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase-admin";
+import { sendEmail } from "@/lib/email";
 
 // Fulfil a paid order. Idempotent: guarded by order.status and per-entity checks,
 // so PayMongo webhook retries never double-grant. Grants ONLY happen here (called
@@ -77,6 +78,35 @@ export async function fulfillOrder(
         seats_total: order.quantity,
       });
     }
+  }
+
+  // Payment confirmation email (non-fatal, idempotent per order+recipient).
+  const [{ data: buyer }, { data: event }, { data: group }] = await Promise.all([
+    admin.from("participants").select("email").eq("id", order.buyer_participant_id).single(),
+    admin.from("events").select("title, slug, start_at, end_at, is_online, venue").eq("id", order.event_id).single(),
+    admin.from("groups").select("id").eq("order_id", order.id).maybeSingle(),
+  ]);
+  if (buyer?.email && event) {
+    await sendEmail({
+      type: "order_paid",
+      to: buyer.email,
+      refId: String(order.id),
+      participantId: order.buyer_participant_id,
+      data: {
+        orderRef: String(order.id).slice(0, 8).toUpperCase(),
+        eventTitle: event.title,
+        slug: event.slug,
+        quantity: order.quantity,
+        amountCentavos: order.amount_centavos,
+        paidAt: new Date().toISOString(),
+        paymentMethod: null,
+        startAt: event.start_at,
+        endAt: event.end_at,
+        isOnline: event.is_online,
+        venue: event.venue,
+        groupId: group?.id ?? null,
+      },
+    });
   }
 
   return { ok: true };
