@@ -38,8 +38,9 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 bg-brand-blue text-white shadow-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2 text-xl font-bold tracking-tight">
-          <span className="text-brand-gold">Youth</span>Pinoy
+        <Link href="/" className="flex items-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/youthpinoy-logo-transparent.svg" alt="YouthPinoy" style={{ width: "120px", height: "auto", maxWidth: "none" }} />
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm font-medium md:flex">

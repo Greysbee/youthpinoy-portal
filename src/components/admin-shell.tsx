@@ -59,8 +59,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       <aside className="hidden w-60 shrink-0 border-r border-gray-200 bg-white lg:block">
         <div className="sticky top-0 flex h-screen flex-col">
           <div className="flex h-16 items-center gap-2 border-b border-gray-200 px-5">
-            <Link href="/" className="text-lg font-bold text-brand-dark">
-              <span className="text-brand-gold">Youth</span>Pinoy
+            <Link href="/" className="flex items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/youthpinoy-logo.svg" alt="YouthPinoy" className="rounded" style={{ width: "120px", height: "auto", maxWidth: "none" }} />
             </Link>
             <span className="rounded bg-brand-blue/10 px-1.5 py-0.5 text-[10px] font-bold text-brand-blue uppercase">
               {role}
@@ -86,9 +87,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       </aside>
 
       <header className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 lg:hidden">
-        <Link href="/" className="font-bold text-brand-dark">
-          <span className="text-brand-gold">Youth</span>Pinoy
-          <span className="ml-1 rounded bg-brand-blue/10 px-1.5 py-0.5 text-[10px] font-bold text-brand-blue uppercase">
+        <Link href="/" className="flex items-center gap-1.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/youthpinoy-logo.svg" alt="YouthPinoy" className="rounded" style={{ width: "100px", height: "auto", maxWidth: "none" }} />
+          <span className="rounded bg-brand-blue/10 px-1.5 py-0.5 text-[10px] font-bold text-brand-blue uppercase">
             {role}
           </span>
         </Link>

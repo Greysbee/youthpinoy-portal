@@ -41,7 +41,7 @@ export default function HomePage() {
         <section className="bg-brand-blue py-16 text-white sm:py-24">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 text-center">
             <h1 className="text-3xl font-bold tracking-tight sm:text-5xl">
-              Become an <span className="text-brand-gold">Online Missionary</span>
+              Become a <span className="text-brand-gold">Catholic Digital Missionary</span>
             </h1>
             <p className="mx-auto mt-4 max-w-2xl text-lg text-white/80">
               Equipping empowered, inspired, and spiritually-driven digital missionaries through creative trainings and masterclasses.
