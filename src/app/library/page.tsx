@@ -20,13 +20,13 @@ export default async function LibraryPage() {
   // RLS returns only published rows; provider_ref is not selectable by this client.
   const { data: events } = await supabase
     .from("events")
-    .select("id, code, title, slug, start_at, status")
+    .select("id, code, title, slug, start_at, status, price_centavos")
     .eq("status", "published");
 
   const { data: videos } = await supabase
     .from("videos")
     .select(
-      "id, event_id, title, description, thumbnail_url, duration_seconds, is_free, sort_order, status"
+      "id, event_id, title, description, thumbnail_url, duration_seconds, sort_order, status"
     )
     .eq("status", "published")
     .order("sort_order");
@@ -35,7 +35,10 @@ export default async function LibraryPage() {
 
   const items: LibraryItem[] = (videos ?? []).map((v) => {
     const ev = v.event_id ? eventsById.get(v.event_id) : null;
-    const unlocked = v.is_free || (v.event_id ? accessible.has(v.event_id) : false);
+    // Access is by enrollment. Unlocked = enrolled; Free = free event you can enroll
+    // in for ₱0; Locked = paid event you haven't bought.
+    const unlocked = ev ? accessible.has(ev.id) : false;
+    const badge = unlocked ? "Unlocked" : ev && ev.price_centavos === 0 ? "Free" : "Locked";
     return {
       id: v.id,
       title: v.title,
@@ -46,7 +49,7 @@ export default async function LibraryPage() {
       eventCode: ev?.code ?? "Unassigned",
       eventTitle: ev?.title ?? "Unassigned",
       eventStartAt: ev?.start_at ?? null,
-      badge: v.is_free ? "Free" : unlocked ? "Unlocked" : "Locked",
+      badge,
     };
   });
 

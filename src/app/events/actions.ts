@@ -115,6 +115,78 @@ export async function registerFree(_prev: RegState, formData: FormData): Promise
   redirect(`/events/${slug}?registered=1`);
 }
 
+// One-click enrollment in a FREE event (e.g. from the Library / watch page).
+// Creates a registration + ₱0 entitlement (making the person a Participant), then
+// returns to `back_to` so they can watch.
+export async function enrollFreeEvent(formData: FormData): Promise<void> {
+  const eventId = formData.get("event_id") as string;
+  const backTo = (formData.get("back_to") as string) || "/library";
+  const viewer = await getViewer();
+  if (!viewer?.participantId) redirect(`/login?next=${encodeURIComponent(backTo)}`);
+
+  const admin = createAdminClient();
+  const { data: event } = await admin
+    .from("events")
+    .select("id, title, slug, price_centavos, status, start_at, end_at, is_online, venue")
+    .eq("id", eventId)
+    .single();
+  if (!event || event.status !== "published" || event.price_centavos !== 0) redirect(backTo);
+
+  const { data: reg } = await admin
+    .from("registrations")
+    .select("id")
+    .eq("participant_id", viewer.participantId)
+    .eq("event_id", eventId)
+    .maybeSingle();
+  if (!reg) {
+    await admin.from("registrations").insert({
+      participant_id: viewer.participantId,
+      event_id: eventId,
+      status: "confirmed",
+    });
+  }
+
+  const { data: ent } = await admin
+    .from("entitlements")
+    .select("id")
+    .eq("participant_id", viewer.participantId)
+    .eq("event_id", eventId)
+    .eq("type", "event")
+    .is("revoked_at", null)
+    .maybeSingle();
+  if (!ent) {
+    await admin.from("entitlements").insert({
+      participant_id: viewer.participantId,
+      event_id: eventId,
+      type: "event",
+      source: "purchase",
+    });
+    const { data: pt } = await admin
+      .from("participants")
+      .select("email")
+      .eq("id", viewer.participantId)
+      .single();
+    if (pt?.email) {
+      await sendEmail({
+        type: "event_registered",
+        to: pt.email,
+        refId: eventId,
+        participantId: viewer.participantId,
+        data: {
+          eventTitle: event.title,
+          slug: event.slug,
+          startAt: event.start_at,
+          endAt: event.end_at,
+          isOnline: event.is_online,
+          venue: event.venue,
+        },
+      });
+    }
+  }
+
+  redirect(backTo);
+}
+
 export async function startCheckout(_prev: RegState, formData: FormData): Promise<RegState> {
   const slug = formData.get("slug") as string;
   const viewer = await getViewer();

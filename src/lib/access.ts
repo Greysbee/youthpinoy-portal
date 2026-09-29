@@ -64,16 +64,20 @@ export async function getPlaybackUrl(
   videoId: string,
   participantId: string | null
 ): Promise<string | null> {
-  const allowed = await canWatch(participantId, videoId);
-  if (!allowed) return null;
-
   const admin = createAdminClient();
   const { data: v } = await admin
     .from("videos")
-    .select("provider, provider_ref")
+    .select("provider, provider_ref, event_id")
     .eq("id", videoId)
     .single();
-  if (!v) return null;
+  if (!v || !v.event_id) return null;
+
+  // Access is by ENROLLMENT only: the participant must have an entitlement to the
+  // video's event (directly, via event_includes, or all-access). Free events are
+  // enrolled for ₱0 — there is no per-video open-preview bypass.
+  const accessible = await getAccessibleEventIds(participantId);
+  if (!accessible.has(v.event_id as string)) return null;
+
   return buildEmbedUrl(v.provider as string, v.provider_ref as string);
 }
 
