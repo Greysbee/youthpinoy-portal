@@ -1,11 +1,11 @@
 import AdminShell from "@/components/admin-shell";
 import ParticipantImport from "@/components/admin/participant-import";
-import { requireAdmin } from "@/lib/admin";
+import { requireSuperAdmin } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
 export default async function ImportParticipantsPage() {
-  await requireAdmin();
+  await requireSuperAdmin();
   return (
     <AdminShell>
       <h1 className="text-2xl font-bold text-brand-dark">Import Participants</h1>

@@ -1,5 +1,5 @@
 import AdminShell from "@/components/admin-shell";
-import { requireAdmin } from "@/lib/admin";
+import { requireSuperAdmin } from "@/lib/admin";
 import { buildEmail } from "@/lib/email";
 import EmailPreview, { type Preview } from "@/components/admin/email-preview";
 import { EMAIL_TYPES, SAMPLE_DATA } from "./samples";
@@ -7,7 +7,7 @@ import { EMAIL_TYPES, SAMPLE_DATA } from "./samples";
 export const dynamic = "force-dynamic";
 
 export default async function AdminEmailsPage() {
-  await requireAdmin();
+  await requireSuperAdmin();
 
   const previews: Preview[] = [];
   for (const { type, label } of EMAIL_TYPES) {

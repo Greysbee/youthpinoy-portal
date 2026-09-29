@@ -1,19 +1,16 @@
 import Link from "next/link";
 import AdminShell from "@/components/admin-shell";
-import { requireAdmin } from "@/lib/admin";
+import { requireSuperAdmin } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
-type RoleLabel = "Super Admin" | "Admin" | "Participant" | "Member";
+const BADGE = "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold";
 
-function roleBadge(label: RoleLabel) {
-  const styles: Record<RoleLabel, string> = {
-    "Super Admin": "bg-purple-100 text-purple-700",
-    Admin: "bg-blue-100 text-blue-700",
-    Participant: "bg-emerald-100 text-emerald-700",
-    Member: "bg-gray-100 text-gray-600",
-  };
-  return `inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles[label]}`;
+function statusClass(status: "Member" | "Participant") {
+  return status === "Participant" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600";
+}
+function accessClass(access: "Admin" | "Super Admin") {
+  return access === "Super Admin" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700";
 }
 
 export default async function AdminMembersPage({
@@ -21,7 +18,7 @@ export default async function AdminMembersPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
-  const { admin } = await requireAdmin();
+  const { admin } = await requireSuperAdmin();
   const { q } = await searchParams;
 
   let query = admin
@@ -51,12 +48,14 @@ export default async function AdminMembersPage({
   for (const e of ents ?? []) if (e.participant_id) active.add(e.participant_id);
   for (const r of regs ?? []) if (r.participant_id) active.add(r.participant_id);
 
-  function labelFor(pid: string): RoleLabel {
+  function labelsFor(pid: string): {
+    status: "Member" | "Participant";
+    access: "Admin" | "Super Admin" | null;
+  } {
     const stored = roleByPid.get(pid);
-    if (stored === "super_admin") return "Super Admin";
-    if (stored === "admin") return "Admin";
-    if (active.has(pid)) return "Participant";
-    return "Member";
+    const access = stored === "super_admin" ? "Super Admin" : stored === "admin" ? "Admin" : null;
+    const status = active.has(pid) ? "Participant" : "Member";
+    return { status, access };
   }
 
   return (
@@ -94,13 +93,18 @@ export default async function AdminMembersPage({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {(participants ?? []).map((p) => {
-              const label = labelFor(p.id);
+              const { status, access } = labelsFor(p.id);
               return (
                 <tr key={p.id} className="hover:bg-gray-50">
                   <td className="py-3 pr-4 font-medium text-brand-dark">{p.full_name || "—"}</td>
                   <td className="py-3 pr-4">{p.email}</td>
                   <td className="py-3 pr-4 text-brand-muted">{p.organization || "—"}</td>
-                  <td className="py-3 pr-4"><span className={roleBadge(label)}>{label}</span></td>
+                  <td className="py-3 pr-4">
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <span className={`${BADGE} ${statusClass(status)}`}>{status}</span>
+                      {access && <span className={`${BADGE} ${accessClass(access)}`}>{access}</span>}
+                    </span>
+                  </td>
                   <td className="py-3 text-right">
                     <Link href={`/admin/participants/${p.id}`} className="rounded-lg px-3 py-1.5 text-brand-accent hover:bg-brand-accent/10">
                       View

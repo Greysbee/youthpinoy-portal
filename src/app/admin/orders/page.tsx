@@ -1,10 +1,10 @@
 import AdminShell from "@/components/admin-shell";
-import { requireAdmin, centavosToPesos } from "@/lib/admin";
+import { requireSuperAdmin, centavosToPesos } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminOrdersPage() {
-  const { admin } = await requireAdmin();
+  const { admin } = await requireSuperAdmin();
   const { data: orders } = await admin
     .from("orders")
     .select("id, amount_centavos, currency, status, quantity, created_at, events(code), participants(email)")

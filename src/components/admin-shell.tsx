@@ -6,11 +6,12 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase-client";
 
 const ADMIN = ["admin", "super_admin"];
+const SUPER = ["super_admin"];
 const allNavItems = [
   { href: "/admin/videos", label: "Library", icon: "🎬", roles: ADMIN },
   { href: "/admin/events", label: "Events", icon: "🗓️", roles: ADMIN },
-  { href: "/admin/members", label: "Members", icon: "🙋", roles: ADMIN },
-  { href: "/admin/emails", label: "Emails", icon: "✉️", roles: ADMIN },
+  { href: "/admin/members", label: "Members", icon: "🙋", roles: SUPER },
+  { href: "/admin/emails", label: "Emails", icon: "✉️", roles: SUPER },
   { href: "/account", label: "Account", icon: "👤", roles: ADMIN },
 ];
 

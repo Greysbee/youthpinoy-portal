@@ -1,6 +1,6 @@
 import Link from "next/link";
 import AdminShell from "@/components/admin-shell";
-import { requireAdmin, centavosToPesos } from "@/lib/admin";
+import { requireSuperAdmin, centavosToPesos } from "@/lib/admin";
 import { notFound } from "next/navigation";
 import { grantEntitlement, revokeEntitlement, setRole } from "../actions";
 
@@ -12,7 +12,7 @@ export default async function ParticipantDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { admin, userId } = await requireAdmin();
+  const { admin, userId } = await requireSuperAdmin();
 
   const { data: p } = await admin.from("participants").select("*").eq("id", id).single();
   if (!p) notFound();

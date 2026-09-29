@@ -3,11 +3,12 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-// Guard for every admin page / server action. Redirects non-admins. Returns the
-// service-role client (RLS-bypassing) — only reachable after the admin check.
+// Guard for admin pages / actions (Library + Events content). Admin and
+// super_admin both pass. Returns the service-role client + the caller's role.
 export async function requireAdmin(): Promise<{
   admin: SupabaseClient;
   userId: string;
+  role: string;
 }> {
   const supabase = await createServerSupabaseClient();
   const {
@@ -22,7 +23,33 @@ export async function requireAdmin(): Promise<{
     .single();
   if (!profile || !["admin", "super_admin"].includes(profile.role)) redirect("/");
 
-  return { admin: createAdminClient(), userId: user.id };
+  return { admin: createAdminClient(), userId: user.id, role: profile.role };
+}
+
+// Stricter guard for member management (Members list, profiles, entitlements,
+// participant import, orders, emails). Only super_admin passes; a plain admin is
+// bounced back into the admin area.
+export async function requireSuperAdmin(): Promise<{
+  admin: SupabaseClient;
+  userId: string;
+  role: string;
+}> {
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login?next=/admin");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (profile?.role === "super_admin") {
+    return { admin: createAdminClient(), userId: user.id, role: "super_admin" };
+  }
+  if (profile?.role === "admin") redirect("/admin/videos");
+  redirect("/");
 }
 
 // trim + lowercase, everywhere, always.

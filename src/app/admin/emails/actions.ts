@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAdmin } from "@/lib/admin";
+import { requireSuperAdmin } from "@/lib/admin";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { buildEmail, deliver, type EmailType } from "@/lib/email";
 import { SAMPLE_DATA } from "./samples";
@@ -8,7 +8,7 @@ import { SAMPLE_DATA } from "./samples";
 export type TestState = { error?: string; notice?: string };
 
 export async function sendTestEmail(_prev: TestState, formData: FormData): Promise<TestState> {
-  await requireAdmin();
+  await requireSuperAdmin();
   const type = formData.get("type") as EmailType;
   if (!SAMPLE_DATA[type]) return { error: "Unknown template." };
 

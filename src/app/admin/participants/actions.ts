@@ -1,10 +1,10 @@
 "use server";
 
-import { requireAdmin } from "@/lib/admin";
+import { requireSuperAdmin } from "@/lib/admin";
 import { revalidatePath } from "next/cache";
 
 export async function grantEntitlement(formData: FormData): Promise<void> {
-  const { admin } = await requireAdmin();
+  const { admin } = await requireSuperAdmin();
   const participant_id = formData.get("participant_id") as string;
   const type = formData.get("type") as string; // "event" | "all_access"
   const event_id = type === "event" ? (formData.get("event_id") as string) : null;
@@ -32,7 +32,7 @@ export async function grantEntitlement(formData: FormData): Promise<void> {
 }
 
 export async function revokeEntitlement(formData: FormData): Promise<void> {
-  const { admin } = await requireAdmin();
+  const { admin } = await requireSuperAdmin();
   const id = formData.get("id") as string;
   const participant_id = formData.get("participant_id") as string;
   if (!id) return;
@@ -47,7 +47,7 @@ export async function revokeEntitlement(formData: FormData): Promise<void> {
 // super_admin. Stored role is one of member/admin/super_admin (participant is
 // computed from activity, never stored here).
 export async function setRole(formData: FormData): Promise<void> {
-  const { admin, userId } = await requireAdmin();
+  const { admin, userId } = await requireSuperAdmin();
   const participant_id = formData.get("participant_id") as string;
   const role = formData.get("role") as string;
   if (!participant_id || !["member", "admin", "super_admin"].includes(role)) return;

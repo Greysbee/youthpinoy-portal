@@ -1,7 +1,7 @@
 "use server";
 
 import {
-  requireAdmin,
+  requireSuperAdmin,
   normalizeEmail,
   isValidEmail,
   splitEventCell,
@@ -43,7 +43,7 @@ const TRUTHY = /^(1|true|yes|y|x|✓)$/i;
 export async function importParticipants(
   rows: ImportInputRow[]
 ): Promise<ImportReport> {
-  const { admin } = await requireAdmin();
+  const { admin } = await requireSuperAdmin();
 
   const report: ImportReport = {
     totalRows: rows.length,
