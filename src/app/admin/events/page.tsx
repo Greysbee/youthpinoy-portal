@@ -26,7 +26,7 @@ export default async function AdminEventsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-brand-dark">Events</h1>
-          <p className="mt-1 text-brand-muted">CSMS events and their video packages.</p>
+          <p className="mt-1 text-brand-muted">Events and its inclusions.</p>
         </div>
         <div className="flex gap-2">
           {role === "super_admin" && (
@@ -72,11 +72,23 @@ export default async function AdminEventsPage() {
                   <td className="py-3 pr-4">{videoCount.get(e.id) ?? 0}</td>
                   <td className="py-3 pr-4">{regCount.get(e.id) ?? 0}</td>
                   <td className="py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Link href={`/admin/events/edit/${e.id}`} className="rounded-lg px-3 py-1.5 text-brand-accent hover:bg-brand-accent/10">Edit</Link>
+                    <div className="flex items-center justify-end gap-1">
+                      <Link href={`/events/${e.code}`} target="_blank" title="View / register page" className="rounded-lg p-2 text-brand-muted hover:bg-gray-100 hover:text-brand-dark">
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1 1 0 010-.639C3.423 7.51 7.36 4.5 12 4.5s8.577 3.01 9.964 7.183a1 1 0 010 .639C20.577 16.49 16.64 19.5 12 19.5s-8.577-3.01-9.964-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      </Link>
+                      {role === "super_admin" && (
+                        <Link href={`/events/${e.code}/orders`} title="Orders for this event" className="rounded-lg p-2 text-brand-muted hover:bg-gray-100 hover:text-brand-dark">
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 10h6M9 14h6M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16l-3-2-2 2-2-2-2 2-2-2-2 2z" /></svg>
+                        </Link>
+                      )}
+                      <Link href={`/admin/events/edit/${e.id}`} title="Edit" className="rounded-lg p-2 text-brand-accent hover:bg-brand-accent/10">
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897z" /></svg>
+                      </Link>
                       <form action={deleteEvent}>
                         <input type="hidden" name="id" value={e.id} />
-                        <button type="submit" className="rounded-lg px-3 py-1.5 text-brand-red hover:bg-red-50">Delete</button>
+                        <button type="submit" title="Delete" className="rounded-lg p-2 text-brand-red hover:bg-red-50">
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M6 7.5h12M9 7.5V6a1.5 1.5 0 011.5-1.5h3A1.5 1.5 0 0115 6v1.5m-7.5 0l.66 12.223A1.5 1.5 0 009.32 21h5.36a1.5 1.5 0 001.5-1.277L16.5 7.5" /></svg>
+                        </button>
                       </form>
                     </div>
                   </td>

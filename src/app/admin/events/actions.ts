@@ -36,17 +36,25 @@ export async function saveEvent(
     return { error: "Registration fields are not valid — use the builder below." };
 
   const capacityRaw = ((formData.get("capacity") as string) || "").trim();
+  const type = (formData.get("type") as string) === "course" ? "course" : "event";
+  const venue_type = (["online", "onsite", "hybrid"] as const).includes(
+    (formData.get("venue_type") as "online" | "onsite" | "hybrid") ?? "online"
+  )
+    ? (formData.get("venue_type") as string)
+    : "online";
 
   const row = {
     code,
     title,
     slug,
+    type,
     description: (formData.get("description") as string) || null,
     status: (formData.get("status") as string) || "draft",
     price_centavos: pesosToCentavos((formData.get("price") as string) || "0"),
     capacity: capacityRaw ? parseInt(capacityRaw, 10) : null,
     venue: (formData.get("venue") as string) || null,
-    is_online: formData.get("is_online") === "on",
+    venue_type,
+    is_online: venue_type === "online",
     start_at: ((formData.get("start_at") as string) || "").trim() || null,
     end_at: ((formData.get("end_at") as string) || "").trim() || null,
     cover_image_url: (formData.get("cover_image_url") as string) || null,

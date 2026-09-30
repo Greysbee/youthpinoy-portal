@@ -27,11 +27,24 @@ export async function updateProfile(_prev: ActionState, formData: FormData): Pro
   const viewer = await getViewer();
   if (!viewer?.participantId) return { error: "Not signed in." };
   const admin = createAdminClient();
+
+  const first = ((formData.get("first_name") as string) || "").trim();
+  const middle = ((formData.get("middle_name") as string) || "").trim();
+  const last = ((formData.get("last_name") as string) || "").trim();
+  const fullName = [first, middle, last].filter(Boolean).join(" ");
+  // Mobile: digits only.
+  const mobile = ((formData.get("mobile") as string) || "").replace(/\D/g, "");
+
   const { error } = await admin
     .from("participants")
     .update({
-      full_name: ((formData.get("full_name") as string) || "").trim() || null,
-      phone: ((formData.get("phone") as string) || "").trim() || null,
+      first_name: first || null,
+      middle_name: middle || null,
+      last_name: last || null,
+      full_name: fullName || null,
+      mobile: mobile || null,
+      country: ((formData.get("country") as string) || "PH").trim() || "PH",
+      diocese: ((formData.get("diocese") as string) || "").trim() || null,
       organization: ((formData.get("organization") as string) || "").trim() || null,
     })
     .eq("id", viewer.participantId);

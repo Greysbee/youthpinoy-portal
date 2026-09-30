@@ -20,12 +20,14 @@ export default async function EventDetailPage({
   const { registered } = await searchParams;
 
   const supabase = await createServerSupabaseClient();
+  // Resolve by slug OR event code (so /events/CSMSv16 and /events/csms-v16 both work).
+  const key = slug.replace(/[(),]/g, "");
   const { data: event } = await supabase
     .from("events")
     .select("id, code, title, slug, description, price_centavos, capacity, start_at, end_at, is_online, venue, registration_fields, cover_image_url, status")
-    .eq("slug", slug)
     .eq("status", "published")
-    .single();
+    .or(`slug.eq.${key},code.eq.${key}`)
+    .maybeSingle();
   if (!event) notFound();
 
   const {

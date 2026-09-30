@@ -13,6 +13,7 @@ export type LibraryItem = {
   eventCode: string;
   eventTitle: string;
   eventStartAt: string | null;
+  eventType: "course" | "event";
   badge: "Free" | "Unlocked" | "Locked";
 };
 
@@ -44,19 +45,25 @@ function Badge({ badge }: { badge: LibraryItem["badge"] }) {
 export default function LibraryBrowser({ items }: { items: LibraryItem[] }) {
   const [query, setQuery] = useState("");
   const [eventFilter, setEventFilter] = useState("all");
+  const courseCount = useMemo(() => items.filter((i) => i.eventType === "course").length, [items]);
+  const eventCount = items.length - courseCount;
+  const [tab, setTab] = useState<"course" | "event">(eventCount === 0 && courseCount > 0 ? "course" : "event");
+
+  // Only the items in the active tab.
+  const tabItems = useMemo(() => items.filter((it) => it.eventType === tab), [items, tab]);
 
   // Distinct event codes, newest first (by event start date desc).
   const eventCodes = useMemo(() => {
     const map = new Map<string, string | null>();
-    for (const it of items) if (!map.has(it.eventCode)) map.set(it.eventCode, it.eventStartAt);
+    for (const it of tabItems) if (!map.has(it.eventCode)) map.set(it.eventCode, it.eventStartAt);
     return [...map.entries()]
       .sort((a, b) => (b[1] ?? "").localeCompare(a[1] ?? ""))
       .map(([code]) => code);
-  }, [items]);
+  }, [tabItems]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return items.filter((it) => {
+    return tabItems.filter((it) => {
       if (eventFilter !== "all" && it.eventCode !== eventFilter) return false;
       if (!q) return true;
       return (
@@ -65,7 +72,7 @@ export default function LibraryBrowser({ items }: { items: LibraryItem[] }) {
         it.eventCode.toLowerCase().includes(q)
       );
     });
-  }, [items, query, eventFilter]);
+  }, [tabItems, query, eventFilter]);
 
   // Group filtered items by event, preserving the newest-first order.
   const groups = useMemo(() => {
@@ -80,14 +87,28 @@ export default function LibraryBrowser({ items }: { items: LibraryItem[] }) {
       .filter((g) => g.videos.length > 0);
   }, [eventCodes, filtered]);
 
+  const tabBtn = (active: boolean) =>
+    `rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+      active ? "bg-brand-blue text-white" : "bg-gray-100 text-brand-dark hover:bg-gray-200"
+    }`;
+
   return (
     <div>
+      <div className="mb-5 flex gap-2 border-b border-gray-200 pb-4">
+        <button onClick={() => { setTab("course"); setEventFilter("all"); }} className={tabBtn(tab === "course")}>
+          Courses <span className="opacity-70">({courseCount})</span>
+        </button>
+        <button onClick={() => { setTab("event"); setEventFilter("all"); }} className={tabBtn(tab === "event")}>
+          Events <span className="opacity-70">({eventCount})</span>
+        </button>
+      </div>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search sessions…"
+          placeholder="Search…"
           className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent sm:max-w-xs"
         />
         <select

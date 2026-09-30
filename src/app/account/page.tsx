@@ -96,8 +96,12 @@ export default async function AccountPage() {
               <div className="mt-4">
                 <ProfileForm
                   email={participant?.email ?? viewer.email ?? ""}
-                  fullName={participant?.full_name ?? ""}
-                  phone={participant?.phone ?? ""}
+                  firstName={participant?.first_name ?? ""}
+                  middleName={participant?.middle_name ?? ""}
+                  lastName={participant?.last_name ?? ""}
+                  mobile={participant?.mobile ?? ""}
+                  country={participant?.country ?? "PH"}
+                  diocese={participant?.diocese ?? ""}
                   organization={participant?.organization ?? ""}
                 />
               </div>

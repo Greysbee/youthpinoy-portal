@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import Link from "next/link";
 import { saveEvent, type EventFormState } from "@/app/admin/events/actions";
+import { createClient } from "@/lib/supabase-client";
 
 type RegField = {
   key: string;
@@ -17,11 +18,13 @@ export type EventInput = {
   code?: string;
   title?: string;
   slug?: string;
+  type?: string;
   description?: string | null;
   status?: string;
   price_centavos?: number;
   capacity?: number | null;
   venue?: string | null;
+  venue_type?: string | null;
   is_online?: boolean;
   start_at?: string | null;
   end_at?: string | null;
@@ -34,7 +37,6 @@ const FIELD_TYPES = ["text", "textarea", "email", "phone", "number", "select", "
 
 function toLocalInput(value?: string | null): string {
   if (!value) return "";
-  // Accept ISO / timestamptz and produce a datetime-local value.
   const d = new Date(value);
   if (isNaN(d.getTime())) return "";
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -48,11 +50,19 @@ export default function EventForm({
   event?: EventInput;
   allEvents: { id: string; code: string; title: string }[];
 }) {
-  const [state, formAction, pending] = useActionState<EventFormState, FormData>(
-    saveEvent,
-    {}
-  );
+  const [state, formAction, pending] = useActionState<EventFormState, FormData>(saveEvent, {});
   const [fields, setFields] = useState<RegField[]>(event?.registration_fields ?? []);
+  const [venueType, setVenueType] = useState(event?.venue_type ?? "online");
+  const [coverUrl, setCoverUrl] = useState(event?.cover_image_url ?? "");
+  const [uploading, setUploading] = useState(false);
+  const [uploadErr, setUploadErr] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const [includes, setIncludes] = useState<string[]>(event?.includedEventIds ?? []);
+  const [pick, setPick] = useState("");
+
+  const selectable = allEvents.filter((e) => e.id !== event?.id && !includes.includes(e.id));
+  const codeById = (id: string) => allEvents.find((e) => e.id === id)?.code ?? id;
 
   function updateField(i: number, patch: Partial<RegField>) {
     setFields((f) => f.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
@@ -64,6 +74,25 @@ export default function EventForm({
     setFields((f) => f.filter((_, idx) => idx !== i));
   }
 
+  async function onCoverFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadErr("");
+    setUploading(true);
+    try {
+      const supabase = createClient();
+      const path = `${event?.id ?? "new"}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const { error } = await supabase.storage.from("covers").upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data } = supabase.storage.from("covers").getPublicUrl(path);
+      setCoverUrl(data.publicUrl);
+    } catch (err) {
+      setUploadErr(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   const input =
     "mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent";
   const label = "block text-sm font-medium text-brand-dark";
@@ -71,7 +100,6 @@ export default function EventForm({
   return (
     <form action={formAction} className="max-w-2xl space-y-5">
       {event?.id && <input type="hidden" name="id" value={event.id} />}
-      {/* Serialized registration-question builder */}
       <input
         type="hidden"
         name="registration_fields"
@@ -87,6 +115,9 @@ export default function EventForm({
             }))
         )}
       />
+      {includes.map((id) => (
+        <input key={id} type="hidden" name="includes" value={id} />
+      ))}
 
       {state.error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -94,9 +125,16 @@ export default function EventForm({
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div>
-          <label className={label}>Event code *</label>
+          <label className={label}>Type</label>
+          <select name="type" defaultValue={event?.type ?? "event"} className={input}>
+            <option value="event">Event (ticketed)</option>
+            <option value="course">Course (video collection)</option>
+          </select>
+        </div>
+        <div>
+          <label className={label}>Code *</label>
           <input name="code" required defaultValue={event?.code} placeholder="CSMSv16" className={input} />
         </div>
         <div>
@@ -127,20 +165,31 @@ export default function EventForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={label}>Price (₱)</label>
-          <input
-            name="price"
-            type="number"
-            min="0"
-            step="0.01"
-            defaultValue={event ? (event.price_centavos ?? 0) / 100 : 0}
-            className={input}
-          />
+          <input name="price" type="number" min="0" step="0.01" defaultValue={event ? (event.price_centavos ?? 0) / 100 : 0} className={input} />
           <p className="mt-1 text-xs text-brand-muted">0 = free</p>
         </div>
         <div>
           <label className={label}>Capacity</label>
           <input name="capacity" type="number" min="0" defaultValue={event?.capacity ?? ""} className={input} />
         </div>
+      </div>
+
+      {/* Venue */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label className={label}>Venue</label>
+          <select name="venue_type" value={venueType} onChange={(e) => setVenueType(e.target.value)} className={input}>
+            <option value="online">Online</option>
+            <option value="onsite">On-site</option>
+            <option value="hybrid">Hybrid</option>
+          </select>
+        </div>
+        {venueType !== "online" && (
+          <div>
+            <label className={label}>Venue address</label>
+            <input name="venue" defaultValue={event?.venue ?? ""} placeholder="e.g. SMX Convention Center" className={input} />
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -154,69 +203,90 @@ export default function EventForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label className={label}>Venue</label>
-          <input name="venue" defaultValue={event?.venue ?? ""} className={input} />
-        </div>
-        <div className="flex items-end">
-          <label className="flex items-center gap-2 text-sm text-brand-dark">
-            <input type="checkbox" name="is_online" defaultChecked={event?.is_online ?? true} />
-            Online event
-          </label>
-        </div>
-      </div>
-
+      {/* Cover image with upload */}
       <div>
-        <label className={label}>Cover image URL</label>
-        <input name="cover_image_url" defaultValue={event?.cover_image_url ?? ""} className={input} />
+        <label className={label}>Cover image</label>
+        <div className="mt-1 flex gap-2">
+          <input
+            name="cover_image_url"
+            value={coverUrl}
+            onChange={(e) => setCoverUrl(e.target.value)}
+            placeholder="Paste a URL or upload →"
+            className="block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent"
+          />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            title="Upload image"
+            className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-gray-300 px-3 text-sm text-brand-dark hover:bg-gray-50 disabled:opacity-50"
+          >
+            {uploading ? (
+              "Uploading…"
+            ) : (
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 9l5-5 5 5M12 4v12" />
+              </svg>
+            )}
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" onChange={onCoverFile} className="hidden" />
+        </div>
+        {uploadErr && <p className="mt-1 text-xs text-brand-red">{uploadErr}</p>}
+        {coverUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={coverUrl} alt="cover preview" className="mt-2 h-24 w-auto rounded-lg border border-gray-200 object-cover" />
+        )}
       </div>
 
-      {/* Includes access to */}
+      {/* Include access to — dropdown + add */}
       <div>
         <label className={label}>Includes access to</label>
-        <p className="text-xs text-brand-muted">
-          Buyers of this event also unlock the selected events (resolved transitively).
-        </p>
-        <div className="mt-2 grid max-h-48 grid-cols-1 gap-1 overflow-y-auto rounded-lg border border-gray-200 p-2 sm:grid-cols-2">
-          {allEvents
-            .filter((e) => e.id !== event?.id)
-            .map((e) => (
-              <label key={e.id} className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-gray-50">
-                <input
-                  type="checkbox"
-                  name="includes"
-                  value={e.id}
-                  defaultChecked={event?.includedEventIds?.includes(e.id)}
-                />
-                <span className="font-medium">{e.code}</span>
-                <span className="truncate text-brand-muted">{e.title}</span>
-              </label>
+        <p className="text-xs text-brand-muted">Enrollees also unlock the selected items (resolved transitively).</p>
+        <div className="mt-2 flex gap-2">
+          <select value={pick} onChange={(e) => setPick(e.target.value)} className={input}>
+            <option value="">— Select a course/event —</option>
+            {selectable.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.code} · {e.title}
+              </option>
             ))}
-          {allEvents.length === 0 && (
-            <p className="px-2 py-1 text-sm text-brand-muted">No other events yet.</p>
-          )}
+          </select>
+          <button
+            type="button"
+            onClick={() => {
+              if (pick && !includes.includes(pick)) setIncludes((x) => [...x, pick]);
+              setPick("");
+            }}
+            className="min-h-11 rounded-lg bg-brand-blue px-4 text-sm font-semibold text-white hover:bg-brand-dark"
+          >
+            Add
+          </button>
         </div>
+        {includes.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {includes.map((id) => (
+              <span key={id} className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-sm">
+                {codeById(id)}
+                <button type="button" onClick={() => setIncludes((x) => x.filter((i) => i !== id))} className="text-brand-red hover:underline">
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Registration question builder */}
+      {/* Registration questions */}
       <div>
         <label className={label}>Registration questions</label>
         <div className="mt-2 space-y-3">
           {fields.map((f, i) => (
             <div key={i} className="rounded-lg border border-gray-200 p-3">
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <input
-                  placeholder="Question label"
-                  value={f.label}
-                  onChange={(e) => updateField(i, { label: e.target.value })}
-                  className={input}
-                />
+                <input placeholder="Question label" value={f.label} onChange={(e) => updateField(i, { label: e.target.value })} className={input} />
                 <select value={f.type} onChange={(e) => updateField(i, { type: e.target.value })} className={input}>
                   {FIELD_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
+                    <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
               </div>
@@ -224,54 +294,32 @@ export default function EventForm({
                 <input
                   placeholder="Options (comma separated)"
                   defaultValue={f.options?.join(", ") ?? ""}
-                  onChange={(e) =>
-                    updateField(i, {
-                      options: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
-                    })
-                  }
+                  onChange={(e) => updateField(i, { options: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
                   className={`${input} mt-2`}
                 />
               )}
               <div className="mt-2 flex items-center justify-between">
                 <label className="flex items-center gap-2 text-sm text-brand-dark">
-                  <input
-                    type="checkbox"
-                    checked={f.required}
-                    onChange={(e) => updateField(i, { required: e.target.checked })}
-                  />
+                  <input type="checkbox" checked={f.required} onChange={(e) => updateField(i, { required: e.target.checked })} />
                   Required
                 </label>
-                <button
-                  type="button"
-                  onClick={() => removeField(i)}
-                  className="text-sm text-brand-red hover:underline"
-                >
+                <button type="button" onClick={() => removeField(i)} className="text-sm text-brand-red hover:underline">
                   Remove
                 </button>
               </div>
             </div>
           ))}
         </div>
-        <button
-          type="button"
-          onClick={addField}
-          className="mt-2 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-brand-muted hover:bg-gray-50"
-        >
+        <button type="button" onClick={addField} className="mt-2 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-brand-muted hover:bg-gray-50">
           + Add question
         </button>
       </div>
 
       <div className="flex items-center gap-3 pt-2">
-        <button
-          type="submit"
-          disabled={pending}
-          className="min-h-11 rounded-lg bg-brand-blue px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
-        >
-          {pending ? "Saving…" : "Save event"}
+        <button type="submit" disabled={pending} className="min-h-11 rounded-lg bg-brand-blue px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50">
+          {pending ? "Saving…" : "Save"}
         </button>
-        <Link href="/admin/events" className="text-sm text-brand-muted hover:text-brand-dark">
-          Cancel
-        </Link>
+        <Link href="/admin/events" className="text-sm text-brand-muted hover:text-brand-dark">Cancel</Link>
       </div>
     </form>
   );

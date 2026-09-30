@@ -20,7 +20,7 @@ export default async function LibraryPage() {
   // RLS returns only published rows; provider_ref is not selectable by this client.
   const { data: events } = await supabase
     .from("events")
-    .select("id, code, title, slug, start_at, status, price_centavos")
+    .select("id, code, title, slug, start_at, status, price_centavos, type")
     .eq("status", "published");
 
   const { data: videos } = await supabase
@@ -49,6 +49,7 @@ export default async function LibraryPage() {
       eventCode: ev?.code ?? "Unassigned",
       eventTitle: ev?.title ?? "Unassigned",
       eventStartAt: ev?.start_at ?? null,
+      eventType: (ev?.type as "course" | "event") ?? "event",
       badge,
     };
   });
@@ -60,12 +61,11 @@ export default async function LibraryPage() {
         <section className="bg-brand-blue py-10 text-white sm:py-14">
           <div className="mx-auto max-w-7xl px-4 sm:px-6">
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Video <span className="text-brand-gold">Library</span>
+              Virtual <span className="text-brand-gold">Library</span>
             </h1>
             <p className="mt-2 max-w-2xl text-white/80">
-              Recorded sessions from every Catholic Social Media Summit. Free
-              previews are open to all; locked sessions unlock with your event
-              access.
+              Your courses and event recordings. Enroll (free or paid) to unlock a
+              session, then watch anytime.
             </p>
           </div>
         </section>

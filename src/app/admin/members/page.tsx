@@ -1,6 +1,6 @@
 import Link from "next/link";
 import AdminShell from "@/components/admin-shell";
-import { requireSuperAdmin } from "@/lib/admin";
+import { requireSuperAdmin, centavosToPesos } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -33,20 +33,34 @@ export default async function AdminMembersPage({
   const { data: participants } = await query;
   const ids = (participants ?? []).map((p) => p.id);
 
-  // Resolve stored staff role + activity for the listed people only.
-  const [{ data: profiles }, { data: ents }, { data: regs }] = ids.length
+  // Resolve stored staff role + activity + orders for the listed people only.
+  const [{ data: profiles }, { data: ents }, { data: regs }, { data: orders }] = ids.length
     ? await Promise.all([
         admin.from("profiles").select("participant_id, role").in("participant_id", ids),
         admin.from("entitlements").select("participant_id").in("participant_id", ids).is("revoked_at", null),
         admin.from("registrations").select("participant_id").in("participant_id", ids),
+        admin.from("orders").select("buyer_participant_id, amount_centavos, status").in("buyer_participant_id", ids),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
   const roleByPid = new Map<string, string>();
   for (const p of profiles ?? []) if (p.participant_id) roleByPid.set(p.participant_id, p.role);
   const active = new Set<string>();
   for (const e of ents ?? []) if (e.participant_id) active.add(e.participant_id);
   for (const r of regs ?? []) if (r.participant_id) active.add(r.participant_id);
+
+  // Orders per member (count of all orders, and total ₱ of paid ones).
+  const ordersByPid = new Map<string, { count: number; paidCentavos: number }>();
+  for (const o of orders ?? []) {
+    const pid = o.buyer_participant_id as string;
+    if (!pid) continue;
+    const cur = ordersByPid.get(pid) ?? { count: 0, paidCentavos: 0 };
+    cur.count += 1;
+    if (o.status === "paid") cur.paidCentavos += o.amount_centavos ?? 0;
+    ordersByPid.set(pid, cur);
+  }
+  // Anyone who has an order counts as a participant too.
+  for (const pid of ordersByPid.keys()) active.add(pid);
 
   function labelsFor(pid: string): {
     status: "Member" | "Participant";
@@ -88,12 +102,14 @@ export default async function AdminMembersPage({
               <th className="py-3 pr-4">Email</th>
               <th className="py-3 pr-4">Organization</th>
               <th className="py-3 pr-4">Role</th>
+              <th className="py-3 pr-4">Orders</th>
               <th className="py-3 text-right">&nbsp;</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {(participants ?? []).map((p) => {
               const { status, access } = labelsFor(p.id);
+              const ord = ordersByPid.get(p.id);
               return (
                 <tr key={p.id} className="hover:bg-gray-50">
                   <td className="py-3 pr-4 font-medium text-brand-dark">{p.full_name || "—"}</td>
@@ -105,6 +121,15 @@ export default async function AdminMembersPage({
                       {access && <span className={`${BADGE} ${accessClass(access)}`}>{access}</span>}
                     </span>
                   </td>
+                  <td className="py-3 pr-4 text-brand-muted">
+                    {ord ? (
+                      <span>
+                        {ord.count} · <span className="text-brand-dark">₱{centavosToPesos(ord.paidCentavos)}</span>
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="py-3 text-right">
                     <Link href={`/admin/participants/${p.id}`} className="rounded-lg px-3 py-1.5 text-brand-accent hover:bg-brand-accent/10">
                       View
@@ -114,7 +139,7 @@ export default async function AdminMembersPage({
               );
             })}
             {(participants ?? []).length === 0 && (
-              <tr><td colSpan={5} className="py-10 text-center text-brand-muted">No members found.</td></tr>
+              <tr><td colSpan={6} className="py-10 text-center text-brand-muted">No members found.</td></tr>
             )}
           </tbody>
         </table>
