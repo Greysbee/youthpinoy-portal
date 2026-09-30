@@ -11,9 +11,11 @@ export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const router = useRouter();
-  const supabase = createClient();
 
   useEffect(() => {
+    // Create the browser client inside the effect (client-only) so it is never
+    // constructed during SSR/prerender — that would need NEXT_PUBLIC env at build.
+    const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user);
       if (data.user) {
@@ -28,6 +30,7 @@ export default function Navbar() {
   }, []);
 
   async function handleLogout() {
+    const supabase = createClient();
     await supabase.auth.signOut();
     setUser(null);
     setRole(null);
