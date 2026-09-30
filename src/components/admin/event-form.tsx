@@ -73,6 +73,15 @@ export default function EventForm({
   function removeField(i: number) {
     setFields((f) => f.filter((_, idx) => idx !== i));
   }
+  function moveField(i: number, dir: -1 | 1) {
+    setFields((f) => {
+      const j = i + dir;
+      if (j < 0 || j >= f.length) return f;
+      const copy = [...f];
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+      return copy;
+    });
+  }
 
   async function onCoverFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -299,9 +308,11 @@ export default function EventForm({
                   <input type="checkbox" checked={f.required} onChange={(e) => updateField(i, { required: e.target.checked })} />
                   Required
                 </label>
-                <button type="button" onClick={() => removeField(i)} className="text-sm text-brand-red hover:underline">
-                  Remove
-                </button>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={() => moveField(i, -1)} disabled={i === 0} title="Move up" className="rounded px-2 py-1 text-brand-muted hover:bg-gray-100 disabled:opacity-30">↑</button>
+                  <button type="button" onClick={() => moveField(i, 1)} disabled={i === fields.length - 1} title="Move down" className="rounded px-2 py-1 text-brand-muted hover:bg-gray-100 disabled:opacity-30">↓</button>
+                  <button type="button" onClick={() => removeField(i)} className="ml-1 text-sm text-brand-red hover:underline">Remove</button>
+                </div>
               </div>
             </div>
           ))}
