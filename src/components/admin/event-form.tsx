@@ -127,7 +127,7 @@ export default function EventForm({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div>
-          <label className={label}>Type</label>
+          <label className={label}>Category</label>
           <select name="type" defaultValue={event?.type ?? "event"} className={input}>
             <option value="event">Event (ticketed)</option>
             <option value="course">Course (video collection)</option>
@@ -177,7 +177,7 @@ export default function EventForm({
       {/* Venue */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className={label}>Venue</label>
+          <label className={label}>Event type</label>
           <select name="venue_type" value={venueType} onChange={(e) => setVenueType(e.target.value)} className={input}>
             <option value="online">Online</option>
             <option value="onsite">On-site</option>
@@ -186,7 +186,7 @@ export default function EventForm({
         </div>
         {venueType !== "online" && (
           <div>
-            <label className={label}>Venue address</label>
+            <label className={label}>Venue</label>
             <input name="venue" defaultValue={event?.venue ?? ""} placeholder="e.g. SMX Convention Center" className={input} />
           </div>
         )}
