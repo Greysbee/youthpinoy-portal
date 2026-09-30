@@ -100,6 +100,9 @@ export default function EventForm({
   return (
     <form action={formAction} className="max-w-2xl space-y-5">
       {event?.id && <input type="hidden" name="id" value={event.id} />}
+      {/* Type is implied by where it's created: Events -> event, Library -> course.
+          Preserve the existing type when editing. */}
+      <input type="hidden" name="type" value={event?.type ?? "event"} />
       <input
         type="hidden"
         name="registration_fields"
@@ -125,14 +128,7 @@ export default function EventForm({
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div>
-          <label className={label}>Category</label>
-          <select name="type" defaultValue={event?.type ?? "event"} className={input}>
-            <option value="event">Event (ticketed)</option>
-            <option value="course">Course (video collection)</option>
-          </select>
-        </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={label}>Code *</label>
           <input name="code" required defaultValue={event?.code} placeholder="CSMSv16" className={input} />
