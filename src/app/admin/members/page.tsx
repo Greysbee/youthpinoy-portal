@@ -23,7 +23,7 @@ export default async function AdminMembersPage({
 
   let query = admin
     .from("participants")
-    .select("id, email, full_name, organization, created_at")
+    .select("id, member_id, email, full_name, organization, created_at")
     .order("created_at", { ascending: false })
     .limit(200);
   if (q && q.trim()) {
@@ -112,6 +112,7 @@ export default async function AdminMembersPage({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wider text-brand-muted">
+              <th className="py-3 pr-4">YP ID</th>
               <th className="py-3 pr-4">Name</th>
               <th className="py-3 pr-4">Email</th>
               <th className="py-3 pr-4">Role</th>
@@ -126,6 +127,7 @@ export default async function AdminMembersPage({
               const ord = ordersByPid.get(p.id);
               return (
                 <tr key={p.id} className="hover:bg-gray-50">
+                  <td className="py-3 pr-4 font-mono text-xs font-semibold text-brand-blue">{p.member_id}</td>
                   <td className="py-3 pr-4 font-medium text-brand-dark">{p.full_name || "—"}</td>
                   <td className="py-3 pr-4">{p.email}</td>
                   <td className="py-3 pr-4">
@@ -165,7 +167,7 @@ export default async function AdminMembersPage({
               );
             })}
             {(participants ?? []).length === 0 && (
-              <tr><td colSpan={6} className="py-10 text-center text-brand-muted">No members found.</td></tr>
+              <tr><td colSpan={7} className="py-10 text-center text-brand-muted">No members found.</td></tr>
             )}
           </tbody>
         </table>
