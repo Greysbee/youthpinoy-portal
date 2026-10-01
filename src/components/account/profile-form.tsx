@@ -2,7 +2,10 @@
 
 import { useActionState, useState } from "react";
 import { updateProfile, type ActionState } from "@/app/account/actions";
-import { COUNTRIES, DEFAULT_COUNTRY, dialFor, DIOCESES, TITLES } from "@/lib/reference";
+import { useMemo } from "react";
+import { COUNTRIES, DEFAULT_COUNTRY, dialFor, TITLES } from "@/lib/reference";
+
+export type DioceseOption = { name: string; province: string | null };
 
 export type ProfileValues = {
   email: string;
@@ -14,9 +17,24 @@ export type ProfileValues = {
   country: string;
   diocese: string;
   organization: string;
+  dioceses: DioceseOption[];
 };
 
 export default function ProfileForm(props: ProfileValues) {
+  // Group dioceses by ecclesiastical province for the dropdown, preserving order.
+  const dioceseGroups = useMemo(() => {
+    const groups: { province: string; names: string[] }[] = [];
+    for (const d of props.dioceses) {
+      const prov = d.province || "Other";
+      let g = groups.find((x) => x.province === prov);
+      if (!g) {
+        g = { province: prov, names: [] };
+        groups.push(g);
+      }
+      g.names.push(d.name);
+    }
+    return groups;
+  }, [props.dioceses]);
   const [state, formAction, pending] = useActionState<ActionState, FormData>(updateProfile, {});
   const [mobile, setMobile] = useState(props.mobile ?? "");
   const [country, setCountry] = useState(props.country || DEFAULT_COUNTRY);
@@ -101,10 +119,14 @@ export default function ProfileForm(props: ProfileValues) {
           <label className={label}>Diocese</label>
           <select name="diocese" defaultValue={props.diocese} className={input}>
             <option value="">— Select diocese —</option>
-            {DIOCESES.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
+            {dioceseGroups.map((g) => (
+              <optgroup key={g.province} label={g.province}>
+                {g.names.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>

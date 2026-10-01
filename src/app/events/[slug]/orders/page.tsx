@@ -27,6 +27,22 @@ export default async function EventOrdersPage({
     .eq("event_id", event.id)
     .order("created_at", { ascending: false });
 
+  // Ticket numbers per order (for ticketed events).
+  const orderIds = (orders ?? []).map((o) => o.id);
+  const { data: tickets } = orderIds.length
+    ? await admin
+        .from("tickets")
+        .select("order_id, code, status, assigned_email, seq")
+        .in("order_id", orderIds)
+        .order("seq")
+    : { data: [] as { order_id: string; code: string; status: string; assigned_email: string | null; seq: number }[] };
+  const ticketsByOrder = new Map<string, { code: string; status: string; assigned_email: string | null }[]>();
+  for (const t of tickets ?? []) {
+    const arr = ticketsByOrder.get(t.order_id as string) ?? [];
+    arr.push({ code: t.code, status: t.status, assigned_email: t.assigned_email });
+    ticketsByOrder.set(t.order_id as string, arr);
+  }
+
   const paid = (orders ?? []).filter((o) => o.status === "paid");
   const revenue = paid.reduce((s, o) => s + (o.amount_centavos ?? 0), 0);
   const seats = paid.reduce((s, o) => s + (o.quantity ?? 0), 0);
@@ -51,6 +67,7 @@ export default async function EventOrdersPage({
               <th className="py-3 pr-4">Date</th>
               <th className="py-3 pr-4">Buyer</th>
               <th className="py-3 pr-4">Qty</th>
+              <th className="py-3 pr-4">Tickets</th>
               <th className="py-3 pr-4">Amount</th>
               <th className="py-3 pr-4">Status</th>
             </tr>
@@ -63,6 +80,26 @@ export default async function EventOrdersPage({
                   <td className="py-3 pr-4 text-brand-muted">{new Date(o.created_at).toLocaleString()}</td>
                   <td className="py-3 pr-4">{buyer?.full_name || buyer?.email || "—"}</td>
                   <td className="py-3 pr-4">{o.quantity}</td>
+                  <td className="py-3 pr-4">
+                    {(ticketsByOrder.get(o.id) ?? []).length === 0 ? (
+                      <span className="text-brand-muted">—</span>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        {(ticketsByOrder.get(o.id) ?? []).map((t) => (
+                          <span key={t.code} className="flex items-center gap-1.5 whitespace-nowrap">
+                            <span className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-xs font-bold text-amber-800">{t.code}</span>
+                            <span className="text-xs text-brand-muted">
+                              {t.status === "accepted"
+                                ? `✓ ${t.assigned_email ?? ""}`
+                                : t.assigned_email
+                                  ? `→ ${t.assigned_email}`
+                                  : "unassigned"}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </td>
                   <td className="py-3 pr-4">₱{centavosToPesos(o.amount_centavos)}</td>
                   <td className="py-3 pr-4">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
@@ -73,7 +110,7 @@ export default async function EventOrdersPage({
               );
             })}
             {(orders ?? []).length === 0 && (
-              <tr><td colSpan={5} className="py-10 text-center text-brand-muted">No orders for this event yet.</td></tr>
+              <tr><td colSpan={6} className="py-10 text-center text-brand-muted">No orders for this event yet.</td></tr>
             )}
           </tbody>
         </table>

@@ -42,17 +42,5 @@ export function dialFor(code: string): string {
   return COUNTRIES.find((c) => c.code === code)?.dial ?? "";
 }
 
-// Placeholder diocese list — replace with the client's official list later.
-export const DIOCESES: string[] = [
-  "Archdiocese of Manila",
-  "Archdiocese of Cebu",
-  "Archdiocese of Davao",
-  "Archdiocese of Lipa",
-  "Archdiocese of Nueva Segovia",
-  "Diocese of Cubao",
-  "Diocese of Novaliches",
-  "Diocese of Kalookan",
-  "Diocese of Antipolo",
-  "Diocese of Parañaque",
-  "Other",
-];
+// Dioceses now live in the `dioceses` table (migration 0012) — loaded server-side
+// and passed into the profile form, so there is no hardcoded list here.

@@ -33,15 +33,16 @@ export default async function AdminMembersPage({
   const { data: participants } = await query;
   const ids = (participants ?? []).map((p) => p.id);
 
-  // Resolve stored staff role + activity + orders for the listed people only.
-  const [{ data: profiles }, { data: ents }, { data: regs }, { data: orders }] = ids.length
+  // Resolve stored staff role + activity + orders + held tickets for the listed people.
+  const [{ data: profiles }, { data: ents }, { data: regs }, { data: orders }, { data: heldTickets }] = ids.length
     ? await Promise.all([
         admin.from("profiles").select("participant_id, role").in("participant_id", ids),
         admin.from("entitlements").select("participant_id").in("participant_id", ids).is("revoked_at", null),
         admin.from("registrations").select("participant_id").in("participant_id", ids),
         admin.from("orders").select("buyer_participant_id, amount_centavos, status").in("buyer_participant_id", ids),
+        admin.from("tickets").select("assigned_participant_id, code, seq").in("assigned_participant_id", ids).eq("status", "accepted").order("seq"),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
   const roleByPid = new Map<string, string>();
   for (const p of profiles ?? []) if (p.participant_id) roleByPid.set(p.participant_id, p.role);
@@ -61,6 +62,17 @@ export default async function AdminMembersPage({
   }
   // Anyone who has an order counts as a participant too.
   for (const pid of ordersByPid.keys()) active.add(pid);
+
+  // Ticket numbers each person holds (accepted).
+  const ticketsByPid = new Map<string, string[]>();
+  for (const t of heldTickets ?? []) {
+    const pid = t.assigned_participant_id as string;
+    if (!pid) continue;
+    const arr = ticketsByPid.get(pid) ?? [];
+    arr.push(t.code as string);
+    ticketsByPid.set(pid, arr);
+    active.add(pid);
+  }
 
   function labelsFor(pid: string): {
     status: "Member" | "Participant";
@@ -102,6 +114,7 @@ export default async function AdminMembersPage({
               <th className="py-3 pr-4">Email</th>
               <th className="py-3 pr-4">Organization</th>
               <th className="py-3 pr-4">Role</th>
+              <th className="py-3 pr-4">Tickets</th>
               <th className="py-3 pr-4">Orders</th>
               <th className="py-3 text-right">&nbsp;</th>
             </tr>
@@ -121,6 +134,19 @@ export default async function AdminMembersPage({
                       {access && <span className={`${BADGE} ${accessClass(access)}`}>{access}</span>}
                     </span>
                   </td>
+                  <td className="py-3 pr-4">
+                    {(ticketsByPid.get(p.id) ?? []).length ? (
+                      <span className="flex flex-wrap gap-1">
+                        {(ticketsByPid.get(p.id) ?? []).map((code) => (
+                          <span key={code} className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-xs font-bold text-amber-800">
+                            {code}
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      <span className="text-brand-muted">—</span>
+                    )}
+                  </td>
                   <td className="py-3 pr-4 text-brand-muted">
                     {ord ? (
                       <span>
@@ -139,7 +165,7 @@ export default async function AdminMembersPage({
               );
             })}
             {(participants ?? []).length === 0 && (
-              <tr><td colSpan={6} className="py-10 text-center text-brand-muted">No members found.</td></tr>
+              <tr><td colSpan={7} className="py-10 text-center text-brand-muted">No members found.</td></tr>
             )}
           </tbody>
         </table>

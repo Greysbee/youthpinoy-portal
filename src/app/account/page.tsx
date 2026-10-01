@@ -106,6 +106,16 @@ export default async function AccountPage() {
     .eq("status", "accepted")
     .order("seq");
 
+  // Diocese options for the profile dropdown (from the reference table).
+  const { data: dioceseRows } = await admin
+    .from("dioceses")
+    .select("name, ecclesiastical_province")
+    .order("sort_order");
+  const dioceses = (dioceseRows ?? []).map((d) => ({
+    name: d.name as string,
+    province: (d.ecclesiastical_province as string) ?? null,
+  }));
+
   // Owner names for memberships.
   const ownerIds = [
     ...new Set(
@@ -149,6 +159,7 @@ export default async function AccountPage() {
                   country={participant?.country ?? "PH"}
                   diocese={participant?.diocese ?? ""}
                   organization={participant?.organization ?? ""}
+                  dioceses={dioceses}
                 />
               </div>
             </section>
