@@ -158,29 +158,41 @@ export default function TicketPurchase({
         <div className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-4">
           <div>
             <label className="block text-xs font-medium text-brand-muted">Title</label>
-            <select name="title" defaultValue={buyer.title} className={input}>
-              <option value="">—</option>
-              {TITLES.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
+            {isLoggedIn && buyer.title ? (
+              <>
+                <input value={buyer.title} readOnly className={`${input} bg-gray-50 text-brand-muted`} />
+                <input type="hidden" name="title" value={buyer.title} />
+              </>
+            ) : (
+              <select name="title" defaultValue={buyer.title} className={input}>
+                <option value="">—</option>
+                {TITLES.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            )}
           </div>
           <div className="sm:col-span-2">
             <label className="block text-xs font-medium text-brand-muted">First name *</label>
-            <input name="first_name" required defaultValue={buyer.firstName} className={input} />
+            {isLoggedIn && buyer.firstName ? (
+              <input name="first_name" value={buyer.firstName} readOnly className={`${input} bg-gray-50 text-brand-muted`} />
+            ) : (
+              <input name="first_name" required defaultValue={buyer.firstName} className={input} />
+            )}
           </div>
           <div className="sm:col-span-1">
             <label className="block text-xs font-medium text-brand-muted">Last name *</label>
-            <input name="last_name" required defaultValue={buyer.lastName} className={input} />
+            {isLoggedIn && buyer.lastName ? (
+              <input name="last_name" value={buyer.lastName} readOnly className={`${input} bg-gray-50 text-brand-muted`} />
+            ) : (
+              <input name="last_name" required defaultValue={buyer.lastName} className={input} />
+            )}
           </div>
         </div>
         <div className="mt-3">
           <label className="block text-xs font-medium text-brand-muted">Email *</label>
           {isLoggedIn ? (
-            <>
-              <input value={buyer.email} readOnly disabled className={`${input} bg-gray-50 text-brand-muted`} />
-              <p className="mt-1 text-xs text-brand-muted">Linked to your account.</p>
-            </>
+            <input value={buyer.email} readOnly disabled className={`${input} bg-gray-50 text-brand-muted`} />
           ) : (
             <input
               name="email"
@@ -194,17 +206,27 @@ export default function TicketPurchase({
           )}
         </div>
         <div className="mt-3">
-          <label className="block text-xs font-medium text-brand-muted">Mobile (optional)</label>
-          <input
-            name="mobile"
-            type="tel"
-            inputMode="numeric"
-            value={mobile}
-            onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
-            placeholder="9XXXXXXXXX"
-            className={input}
-          />
+          <label className="block text-xs font-medium text-brand-muted">Mobile{isLoggedIn ? "" : " (optional)"}</label>
+          {isLoggedIn && buyer.mobile ? (
+            <input name="mobile" value={buyer.mobile} readOnly className={`${input} bg-gray-50 text-brand-muted`} />
+          ) : (
+            <input
+              name="mobile"
+              type="tel"
+              inputMode="numeric"
+              value={mobile}
+              onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
+              placeholder="9XXXXXXXXX"
+              className={input}
+            />
+          )}
         </div>
+        {isLoggedIn && (
+          <p className="mt-2 text-xs text-brand-muted">
+            Prefilled from your account. Update these in{" "}
+            <Link href="/account" className="text-brand-accent hover:underline">My Account</Link>.
+          </p>
+        )}
       </div>
 
       {(event.registration_fields ?? []).length > 0 && (
