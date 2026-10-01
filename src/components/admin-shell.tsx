@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase-client";
 
@@ -10,15 +10,38 @@ const SUPER = ["super_admin"];
 const allNavItems = [
   { href: "/admin/videos", label: "Library", icon: "🎬", roles: ADMIN },
   { href: "/admin/events", label: "Events", icon: "🗓️", roles: ADMIN },
-  { href: "/admin/members", label: "Members", icon: "🙋", roles: SUPER },
+  { href: "/admin/members", label: "Members", icon: "🙋", roles: ADMIN },
   { href: "/admin/emails", label: "Emails", icon: "✉️", roles: SUPER },
   { href: "/account", label: "Account", icon: "👤", roles: ADMIN },
 ];
 
+function HomeIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 10.5L12 3l9 7.5M5.25 9.75V20a1 1 0 001 1h3.5v-5.5h4.5V21h3.5a1 1 0 001-1V9.75" />
+    </svg>
+  );
+}
+function LogoutIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M18 12H9m9 0l-3-3m3 3l-3 3" />
+    </svg>
+  );
+}
+
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   useEffect(() => {
     async function load() {
@@ -77,10 +100,24 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               </Link>
             ))}
           </nav>
-          <div className="border-t border-gray-200 p-3">
-            <Link href="/" className="flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-brand-muted hover:bg-gray-100 transition-colors">
-              ← Back to Site
+          <div className="flex items-center gap-2 border-t border-gray-200 p-3">
+            <Link
+              href="/library"
+              title="Virtual Library"
+              className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-dark hover:bg-gray-100 transition-colors"
+            >
+              <HomeIcon />
+              Library
             </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              title="Log out"
+              aria-label="Log out"
+              className="flex min-h-11 items-center justify-center rounded-lg px-3 py-2.5 text-brand-red hover:bg-red-50 transition-colors"
+            >
+              <LogoutIcon />
+            </button>
           </div>
         </div>
       </aside>
@@ -93,7 +130,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             {role}
           </span>
         </Link>
-        <div className="flex gap-1">
+        <div className="flex items-center gap-1">
           {navItems.map((item) => (
             <Link key={item.href} href={item.href}
               className={`rounded-lg px-3 py-2 text-xs font-medium ${
@@ -102,6 +139,12 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               {item.label}
             </Link>
           ))}
+          <Link href="/library" title="Virtual Library" aria-label="Virtual Library" className="rounded-lg p-2 text-brand-dark hover:bg-gray-100">
+            <HomeIcon />
+          </Link>
+          <button type="button" onClick={handleLogout} title="Log out" aria-label="Log out" className="rounded-lg p-2 text-brand-red hover:bg-red-50">
+            <LogoutIcon />
+          </button>
         </div>
       </header>
 

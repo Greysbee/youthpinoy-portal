@@ -1,6 +1,6 @@
 import Link from "next/link";
 import AdminShell from "@/components/admin-shell";
-import { requireSuperAdmin, centavosToPesos } from "@/lib/admin";
+import { requireAdmin, centavosToPesos } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ export default async function AdminMembersPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
-  const { admin } = await requireSuperAdmin();
+  const { admin, role } = await requireAdmin();
   const { q } = await searchParams;
 
   let query = admin
@@ -91,9 +91,11 @@ export default async function AdminMembersPage({
           <h1 className="text-2xl font-bold text-brand-dark">Members</h1>
           <p className="mt-1 text-brand-muted">Everyone with a participant record. Search by name or email.</p>
         </div>
-        <Link href="/admin/import" className="inline-flex min-h-11 items-center rounded-lg border border-brand-blue px-4 py-2.5 text-sm font-semibold text-brand-blue hover:bg-brand-blue/5">
-          Import participants
-        </Link>
+        {role === "super_admin" && (
+          <Link href="/admin/import" className="inline-flex min-h-11 items-center rounded-lg border border-brand-blue px-4 py-2.5 text-sm font-semibold text-brand-blue hover:bg-brand-blue/5">
+            Import participants
+          </Link>
+        )}
       </div>
 
       <form className="mt-4 flex gap-2" action="/admin/members" method="get">

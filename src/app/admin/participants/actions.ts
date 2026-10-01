@@ -1,7 +1,53 @@
 "use server";
 
-import { requireSuperAdmin } from "@/lib/admin";
+import { requireAdmin, requireSuperAdmin, normalizeEmail, isValidEmail } from "@/lib/admin";
 import { revalidatePath } from "next/cache";
+
+// Edit a member's profile. Allowed for admin AND super_admin (requireAdmin).
+export async function updateMemberProfile(formData: FormData): Promise<void> {
+  const { admin } = await requireAdmin();
+  const id = formData.get("participant_id") as string;
+  if (!id) return;
+
+  const first = ((formData.get("first_name") as string) || "").trim();
+  const middle = ((formData.get("middle_name") as string) || "").trim();
+  const last = ((formData.get("last_name") as string) || "").trim();
+  const fullName = [first, middle, last].filter(Boolean).join(" ");
+  const mobile = ((formData.get("mobile") as string) || "").replace(/\D/g, "");
+
+  await admin
+    .from("participants")
+    .update({
+      title: ((formData.get("title") as string) || "").trim() || null,
+      first_name: first || null,
+      middle_name: middle || null,
+      last_name: last || null,
+      full_name: fullName || null,
+      mobile: mobile || null,
+      country: ((formData.get("country") as string) || "PH").trim() || "PH",
+      diocese: ((formData.get("diocese") as string) || "").trim() || null,
+      organization: ((formData.get("organization") as string) || "").trim() || null,
+    })
+    .eq("id", id);
+
+  // Email is the participant key — only change it when it's valid, different, and
+  // not already taken by someone else.
+  const email = normalizeEmail((formData.get("email") as string) || "");
+  if (email && isValidEmail(email)) {
+    const { data: me } = await admin.from("participants").select("email").eq("id", id).single();
+    if (me?.email !== email) {
+      const { data: clash } = await admin
+        .from("participants")
+        .select("id")
+        .eq("email", email)
+        .neq("id", id)
+        .maybeSingle();
+      if (!clash) await admin.from("participants").update({ email }).eq("id", id);
+    }
+  }
+
+  revalidatePath(`/admin/participants/${id}`);
+}
 
 export async function grantEntitlement(formData: FormData): Promise<void> {
   const { admin } = await requireSuperAdmin();
