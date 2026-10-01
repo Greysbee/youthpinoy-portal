@@ -65,11 +65,11 @@ export default async function EventDetailPage({
   const participantId = await getCurrentParticipantId();
 
   // Prefill the buyer's details on the ticket form (editable, saved on purchase).
-  let buyerDefaults: BuyerDefaults = { title: "", firstName: "", lastName: "", mobile: "" };
+  let buyerDefaults: BuyerDefaults = { title: "", firstName: "", lastName: "", mobile: "", email: "" };
   if (hasTickets && participantId) {
     const { data: me } = await createAdminClient()
       .from("participants")
-      .select("title, first_name, last_name, mobile")
+      .select("title, first_name, last_name, mobile, email")
       .eq("id", participantId)
       .single();
     if (me) {
@@ -78,6 +78,7 @@ export default async function EventDetailPage({
         firstName: me.first_name ?? "",
         lastName: me.last_name ?? "",
         mobile: me.mobile ?? "",
+        email: me.email ?? user?.email ?? "",
       };
     }
   }

@@ -27,6 +27,7 @@ export type BuyerDefaults = {
   firstName: string;
   lastName: string;
   mobile: string;
+  email: string;
 };
 
 const peso = (c: number) => (c === 0 ? "Free" : `₱${(c / 100).toLocaleString("en-PH")}`);
@@ -114,6 +115,7 @@ export default function TicketPurchase({
   const [state, formAction, pending] = useActionState<RegState, FormData>(startTicketCheckout, {});
   const [qtys, setQtys] = useState<Record<string, number>>({});
   const [mobile, setMobile] = useState(buyer.mobile ?? "");
+  const [email, setEmail] = useState(buyer.email ?? "");
 
   const input =
     "mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent";
@@ -171,6 +173,25 @@ export default function TicketPurchase({
             <label className="block text-xs font-medium text-brand-muted">Last name *</label>
             <input name="last_name" required defaultValue={buyer.lastName} className={input} />
           </div>
+        </div>
+        <div className="mt-3">
+          <label className="block text-xs font-medium text-brand-muted">Email *</label>
+          {isLoggedIn ? (
+            <>
+              <input value={buyer.email} readOnly disabled className={`${input} bg-gray-50 text-brand-muted`} />
+              <p className="mt-1 text-xs text-brand-muted">Linked to your account.</p>
+            </>
+          ) : (
+            <input
+              name="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@email.com"
+              className={input}
+            />
+          )}
         </div>
         <div className="mt-3">
           <label className="block text-xs font-medium text-brand-muted">Mobile (optional)</label>
@@ -239,7 +260,7 @@ export default function TicketPurchase({
               </>
             ) : (
               <Link
-                href={`/login?next=/event/${event.slug}`}
+                href={`/login?next=/event/${event.slug}${email ? `&email=${encodeURIComponent(email)}` : ""}`}
                 className="mt-3 flex min-h-11 items-center justify-center rounded-lg bg-brand-gold px-4 py-2.5 text-sm font-bold text-brand-dark hover:bg-amber-400"
               >
                 Log in to get tickets
