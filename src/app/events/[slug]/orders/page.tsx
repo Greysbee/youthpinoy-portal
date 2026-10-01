@@ -1,7 +1,8 @@
 import Link from "next/link";
 import AdminShell from "@/components/admin-shell";
-import { requireSuperAdmin, centavosToPesos } from "@/lib/admin";
+import { requireAdmin, centavosToPesos } from "@/lib/admin";
 import { notFound } from "next/navigation";
+import OrderPaymentLink from "@/components/admin/order-payment-link";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export default async function EventOrdersPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const { admin } = await requireSuperAdmin();
+  const { admin } = await requireAdmin();
 
   const key = slug.replace(/[(),]/g, "");
   const { data: event } = await admin
@@ -70,6 +71,7 @@ export default async function EventOrdersPage({
               <th className="py-3 pr-4">Tickets</th>
               <th className="py-3 pr-4">Amount</th>
               <th className="py-3 pr-4">Status</th>
+              <th className="py-3 text-right">Payment</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -106,11 +108,14 @@ export default async function EventOrdersPage({
                       o.status === "paid" ? "bg-emerald-100 text-emerald-700" : o.status === "pending" ? "bg-amber-100 text-amber-700" : "bg-gray-200 text-gray-600"
                     }`}>{o.status}</span>
                   </td>
+                  <td className="py-3 text-right">
+                    {o.status === "pending" ? <OrderPaymentLink orderId={o.id} /> : <span className="text-xs text-brand-muted">—</span>}
+                  </td>
                 </tr>
               );
             })}
             {(orders ?? []).length === 0 && (
-              <tr><td colSpan={6} className="py-10 text-center text-brand-muted">No orders for this event yet.</td></tr>
+              <tr><td colSpan={7} className="py-10 text-center text-brand-muted">No orders for this event yet.</td></tr>
             )}
           </tbody>
         </table>

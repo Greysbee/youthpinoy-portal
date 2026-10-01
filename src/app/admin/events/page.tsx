@@ -6,7 +6,7 @@ import { deleteEvent } from "./actions";
 export const dynamic = "force-dynamic";
 
 export default async function AdminEventsPage() {
-  const { admin, role } = await requireAdmin();
+  const { admin } = await requireAdmin();
 
   const { data: events } = await admin
     .from("events")
@@ -45,11 +45,9 @@ export default async function AdminEventsPage() {
           <p className="mt-1 text-brand-muted">Events and its inclusions.</p>
         </div>
         <div className="flex gap-2">
-          {role === "super_admin" && (
-            <Link href="/admin/orders" className="inline-flex min-h-11 items-center rounded-lg border border-brand-blue px-4 py-2.5 text-sm font-semibold text-brand-blue hover:bg-brand-blue/5">
-              View orders
-            </Link>
-          )}
+          <Link href="/admin/orders" className="inline-flex min-h-11 items-center rounded-lg border border-brand-blue px-4 py-2.5 text-sm font-semibold text-brand-blue hover:bg-brand-blue/5">
+            View orders
+          </Link>
           <Link href="/admin/events/new" className="inline-flex min-h-11 items-center rounded-lg bg-brand-gold px-5 py-2.5 text-sm font-bold text-brand-dark hover:bg-amber-400">
             + New Event
           </Link>
@@ -90,11 +88,9 @@ export default async function AdminEventsPage() {
                       <Link href={`/event/${e.code}`} target="_blank" title="View / register page" className="rounded-lg p-2 text-brand-muted hover:bg-gray-100 hover:text-brand-dark">
                         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1 1 0 010-.639C3.423 7.51 7.36 4.5 12 4.5s8.577 3.01 9.964 7.183a1 1 0 010 .639C20.577 16.49 16.64 19.5 12 19.5s-8.577-3.01-9.964-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                       </Link>
-                      {role === "super_admin" && (
-                        <Link href={`/events/${e.code}/orders`} title="Orders for this event" className="rounded-lg p-2 text-brand-muted hover:bg-gray-100 hover:text-brand-dark">
-                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 10h6M9 14h6M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16l-3-2-2 2-2-2-2 2-2-2-2 2z" /></svg>
-                        </Link>
-                      )}
+                      <Link href={`/events/${e.code}/orders`} title="Orders for this event" className="rounded-lg p-2 text-brand-muted hover:bg-gray-100 hover:text-brand-dark">
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 10h6M9 14h6M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16l-3-2-2 2-2-2-2 2-2-2-2 2z" /></svg>
+                      </Link>
                       <Link href={`/admin/events/edit/${e.id}`} title="Edit" className="rounded-lg p-2 text-brand-accent hover:bg-brand-accent/10">
                         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897z" /></svg>
                       </Link>

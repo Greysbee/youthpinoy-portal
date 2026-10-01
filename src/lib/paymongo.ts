@@ -71,6 +71,25 @@ export async function createCheckoutSession(opts: {
   };
 }
 
+// Retrieve an existing checkout session (to resume an unpaid order). Returns its
+// hosted checkout_url if still usable, and whether it has already been paid.
+export async function getCheckoutSession(
+  id: string
+): Promise<{ checkoutUrl: string | null; paid: boolean }> {
+  const res = await fetch(`${API}/checkout_sessions/${id}`, {
+    headers: { Authorization: authHeader() },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = json?.errors?.[0]?.detail ?? `PayMongo error ${res.status}`;
+    throw new Error(detail);
+  }
+  const attr = json?.data?.attributes ?? {};
+  const payments = (attr.payments ?? []) as Array<{ attributes?: { status?: string } }>;
+  const paid = payments.some((p) => p?.attributes?.status === "paid");
+  return { checkoutUrl: (attr.checkout_url as string) ?? null, paid };
+}
+
 // Verify the Paymongo-Signature header.
 // Header format: "t=<unix>,te=<testSig>,li=<liveSig>".
 // Signed message = `${t}.${rawBody}`, HMAC-SHA256 with the webhook signing secret

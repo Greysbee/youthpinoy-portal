@@ -1,10 +1,11 @@
 import AdminShell from "@/components/admin-shell";
-import { requireSuperAdmin, centavosToPesos } from "@/lib/admin";
+import { requireAdmin, centavosToPesos } from "@/lib/admin";
+import OrderPaymentLink from "@/components/admin/order-payment-link";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminOrdersPage() {
-  const { admin } = await requireSuperAdmin();
+  const { admin } = await requireAdmin();
   const { data: orders } = await admin
     .from("orders")
     .select("id, amount_centavos, currency, status, quantity, created_at, events(code), participants(email)")
@@ -14,7 +15,7 @@ export default async function AdminOrdersPage() {
   return (
     <AdminShell>
       <h1 className="text-2xl font-bold text-brand-dark">Orders</h1>
-      <p className="mt-1 text-brand-muted">Read-only. Payments arrive in Milestone 3.</p>
+      <p className="mt-1 text-brand-muted">Pending orders can be resumed — copy or send the buyer a payment link.</p>
 
       <div className="mt-6 max-h-[70vh] overflow-auto frozen-head">
         <table className="w-full text-sm">
@@ -26,6 +27,7 @@ export default async function AdminOrdersPage() {
               <th className="py-3 pr-4">Qty</th>
               <th className="py-3 pr-4">Amount</th>
               <th className="py-3 pr-4">Status</th>
+              <th className="py-3 text-right">Payment</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -44,11 +46,14 @@ export default async function AdminOrdersPage() {
                       o.status === "paid" ? "bg-emerald-100 text-emerald-700" : o.status === "pending" ? "bg-amber-100 text-amber-700" : "bg-gray-200 text-gray-600"
                     }`}>{o.status}</span>
                   </td>
+                  <td className="py-3 text-right">
+                    {o.status === "pending" ? <OrderPaymentLink orderId={o.id} /> : <span className="text-xs text-brand-muted">—</span>}
+                  </td>
                 </tr>
               );
             })}
             {(orders ?? []).length === 0 && (
-              <tr><td colSpan={6} className="py-10 text-center text-brand-muted">No orders yet.</td></tr>
+              <tr><td colSpan={7} className="py-10 text-center text-brand-muted">No orders yet.</td></tr>
             )}
           </tbody>
         </table>
