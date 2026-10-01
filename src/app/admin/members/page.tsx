@@ -114,7 +114,6 @@ export default async function AdminMembersPage({
             <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wider text-brand-muted">
               <th className="py-3 pr-4">Name</th>
               <th className="py-3 pr-4">Email</th>
-              <th className="py-3 pr-4">Organization</th>
               <th className="py-3 pr-4">Role</th>
               <th className="py-3 pr-4">Tickets</th>
               <th className="py-3 pr-4">Orders</th>
@@ -129,7 +128,6 @@ export default async function AdminMembersPage({
                 <tr key={p.id} className="hover:bg-gray-50">
                   <td className="py-3 pr-4 font-medium text-brand-dark">{p.full_name || "—"}</td>
                   <td className="py-3 pr-4">{p.email}</td>
-                  <td className="py-3 pr-4 text-brand-muted">{p.organization || "—"}</td>
                   <td className="py-3 pr-4">
                     <span className="flex flex-wrap items-center gap-1.5">
                       <span className={`${BADGE} ${statusClass(status)}`}>{status}</span>
@@ -167,7 +165,7 @@ export default async function AdminMembersPage({
               );
             })}
             {(participants ?? []).length === 0 && (
-              <tr><td colSpan={7} className="py-10 text-center text-brand-muted">No members found.</td></tr>
+              <tr><td colSpan={6} className="py-10 text-center text-brand-muted">No members found.</td></tr>
             )}
           </tbody>
         </table>
