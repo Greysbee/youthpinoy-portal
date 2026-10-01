@@ -54,7 +54,7 @@ export default function VideoImport() {
           <p className="text-sm text-brand-dark">
             <strong>{rows.length}</strong> rows detected. Columns: {headers.join(", ")}
           </p>
-          <div className="mt-3 max-h-60 overflow-auto rounded border border-gray-100">
+          <div className="mt-3 max-h-60 overflow-auto rounded border border-gray-100 frozen-head">
             <table className="w-full text-xs">
               <thead className="bg-gray-50">
                 <tr>{headers.map((h) => <th key={h} className="px-2 py-1 text-left font-semibold">{h}</th>)}</tr>

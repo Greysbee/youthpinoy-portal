@@ -17,3 +17,18 @@ body {
   background: var(--color-brand-light);
   color: var(--color-brand-dark);
 }
+
+/* Frozen (sticky) table headers. Put `frozen-head` on a scrollable wrapper
+   (e.g. max-h-[70vh] overflow-auto) and the header row stays visible while the
+   body scrolls. The header cells carry their own background so rows don't show
+   through, plus a hairline divider at the bottom edge. */
+.frozen-head thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #ffffff;
+  box-shadow: inset 0 -1px 0 #e5e7eb;
+}
+.frozen-head thead th.head-tinted {
+  background-color: #f9fafb;
+}

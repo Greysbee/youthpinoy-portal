@@ -128,20 +128,6 @@ export default function TicketPurchase({
   );
   const totalQty = items.reduce((s, it) => s + it.qty, 0);
 
-  if (!isLoggedIn) {
-    return (
-      <div className="rounded-xl border border-gray-200 bg-white p-5 text-center">
-        <p className="text-brand-dark">Log in to buy tickets for this event.</p>
-        <Link
-          href={`/login?next=/events/${event.slug}`}
-          className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-brand-blue px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark"
-        >
-          Log in to continue
-        </Link>
-      </div>
-    );
-  }
-
   return (
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="event_id" value={event.id} />
@@ -152,15 +138,22 @@ export default function TicketPurchase({
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{state.error}</div>
       )}
 
-      <div className="space-y-3">
-        {ticketTypes.map((t) => (
-          <TicketCard key={t.id} tt={t} qty={qtys[t.id] ?? 0} onQty={(n) => setQtys((q) => ({ ...q, [t.id]: n }))} />
-        ))}
-      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Left — choose tickets */}
+        <div>
+          <h2 className="mb-3 text-lg font-bold text-brand-dark">Get tickets</h2>
+          <div className="space-y-3">
+            {ticketTypes.map((t) => (
+              <TicketCard key={t.id} tt={t} qty={qtys[t.id] ?? 0} onQty={(n) => setQtys((q) => ({ ...q, [t.id]: n }))} />
+            ))}
+          </div>
+        </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4">
-        <p className="text-sm font-semibold text-brand-dark">Your details</p>
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-4">
+        {/* Right — registration details + total */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-brand-dark">Registration details</h2>
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+        <div className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-4">
           <div>
             <label className="block text-xs font-medium text-brand-muted">Title</label>
             <select name="title" defaultValue={buyer.title} className={input}>
@@ -226,21 +219,34 @@ export default function TicketPurchase({
         </div>
       )}
 
-      <div className="rounded-xl border border-gray-200 bg-brand-blue/5 p-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-brand-muted">
-            {totalQty} ticket{totalQty !== 1 ? "s" : ""}
-          </span>
-          <span className="text-lg font-bold text-brand-dark">Total: ₱{(total / 100).toLocaleString("en-PH")}</span>
+          <div className="rounded-xl border border-gray-200 bg-brand-blue/5 p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-brand-muted">
+                {totalQty} ticket{totalQty !== 1 ? "s" : ""}
+              </span>
+              <span className="text-lg font-bold text-brand-dark">Total: ₱{(total / 100).toLocaleString("en-PH")}</span>
+            </div>
+            {isLoggedIn ? (
+              <>
+                <button
+                  type="submit"
+                  disabled={pending || totalQty === 0}
+                  className="mt-3 min-h-11 w-full rounded-lg bg-brand-gold px-4 py-2.5 text-sm font-bold text-brand-dark hover:bg-amber-400 disabled:opacity-50"
+                >
+                  {pending ? "Please wait…" : total > 0 ? `Pay ₱${(total / 100).toLocaleString("en-PH")}` : "Get tickets"}
+                </button>
+                {total > 0 && <p className="mt-2 text-center text-xs text-brand-muted">Secure checkout via PayMongo (test mode).</p>}
+              </>
+            ) : (
+              <Link
+                href={`/login?next=/event/${event.slug}`}
+                className="mt-3 flex min-h-11 items-center justify-center rounded-lg bg-brand-gold px-4 py-2.5 text-sm font-bold text-brand-dark hover:bg-amber-400"
+              >
+                Log in to get tickets
+              </Link>
+            )}
+          </div>
         </div>
-        <button
-          type="submit"
-          disabled={pending || totalQty === 0}
-          className="mt-3 min-h-11 w-full rounded-lg bg-brand-gold px-4 py-2.5 text-sm font-bold text-brand-dark hover:bg-amber-400 disabled:opacity-50"
-        >
-          {pending ? "Please wait…" : total > 0 ? `Pay ₱${(total / 100).toLocaleString("en-PH")}` : "Get tickets"}
-        </button>
-        {total > 0 && <p className="mt-2 text-center text-xs text-brand-muted">Secure checkout via PayMongo (test mode).</p>}
       </div>
     </form>
   );

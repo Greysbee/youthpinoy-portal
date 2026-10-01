@@ -123,7 +123,7 @@ export default function UsersPage() {
           <p className="text-brand-muted">No users found.</p>
         </div>
       ) : (
-        <div className="mt-6 overflow-x-auto">
+        <div className="mt-6 max-h-[70vh] overflow-auto frozen-head">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wider text-brand-muted">

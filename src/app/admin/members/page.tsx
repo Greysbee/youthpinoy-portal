@@ -106,7 +106,7 @@ export default async function AdminMembersPage({
         <button className="rounded-lg bg-brand-blue px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark">Search</button>
       </form>
 
-      <div className="mt-6 overflow-x-auto">
+      <div className="mt-6 max-h-[70vh] overflow-auto frozen-head">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wider text-brand-muted">

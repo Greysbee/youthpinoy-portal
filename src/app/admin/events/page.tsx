@@ -13,13 +13,29 @@ export default async function AdminEventsPage() {
     .select("id, code, title, status, price_centavos, start_at")
     .order("start_at", { ascending: false });
 
-  const { data: videos } = await admin.from("videos").select("event_id");
   const { data: regs } = await admin.from("registrations").select("event_id");
+  const { data: ticketTypes } = await admin.from("ticket_types").select("event_id, price_centavos");
 
-  const videoCount = new Map<string, number>();
-  for (const v of videos ?? []) if (v.event_id) videoCount.set(v.event_id, (videoCount.get(v.event_id) ?? 0) + 1);
   const regCount = new Map<string, number>();
   for (const r of regs ?? []) if (r.event_id) regCount.set(r.event_id, (regCount.get(r.event_id) ?? 0) + 1);
+
+  // Price range from each event's ticket types (if any).
+  const priceRange = new Map<string, { min: number; max: number }>();
+  for (const t of ticketTypes ?? []) {
+    const id = t.event_id as string;
+    const p = (t.price_centavos as number) ?? 0;
+    const cur = priceRange.get(id);
+    if (!cur) priceRange.set(id, { min: p, max: p });
+    else priceRange.set(id, { min: Math.min(cur.min, p), max: Math.max(cur.max, p) });
+  }
+  const priceLabel = (e: { id: string; price_centavos: number }) => {
+    const r = priceRange.get(e.id);
+    if (r) {
+      if (r.min === r.max) return r.min === 0 ? "Free" : `₱${centavosToPesos(r.min)}`;
+      return `₱${centavosToPesos(r.min)} – ₱${centavosToPesos(r.max)}`;
+    }
+    return e.price_centavos === 0 ? "Free" : `₱${centavosToPesos(e.price_centavos)}`;
+  };
 
   return (
     <AdminShell>
@@ -45,7 +61,7 @@ export default async function AdminEventsPage() {
           <p className="text-brand-muted">No events yet.</p>
         </div>
       ) : (
-        <div className="mt-6 overflow-x-auto">
+        <div className="mt-6 max-h-[70vh] overflow-auto frozen-head">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wider text-brand-muted">
@@ -53,7 +69,6 @@ export default async function AdminEventsPage() {
                 <th className="py-3 pr-4">Title</th>
                 <th className="py-3 pr-4">Status</th>
                 <th className="py-3 pr-4">Price</th>
-                <th className="py-3 pr-4">Videos</th>
                 <th className="py-3 pr-4">Regs</th>
                 <th className="py-3 text-right">Actions</th>
               </tr>
@@ -68,12 +83,11 @@ export default async function AdminEventsPage() {
                       e.status === "published" ? "bg-emerald-100 text-emerald-700" : e.status === "closed" ? "bg-gray-200 text-gray-600" : "bg-amber-100 text-amber-700"
                     }`}>{e.status}</span>
                   </td>
-                  <td className="py-3 pr-4">{e.price_centavos === 0 ? "Free" : `₱${centavosToPesos(e.price_centavos)}`}</td>
-                  <td className="py-3 pr-4">{videoCount.get(e.id) ?? 0}</td>
+                  <td className="py-3 pr-4">{priceLabel(e)}</td>
                   <td className="py-3 pr-4">{regCount.get(e.id) ?? 0}</td>
                   <td className="py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Link href={`/events/${e.code}`} target="_blank" title="View / register page" className="rounded-lg p-2 text-brand-muted hover:bg-gray-100 hover:text-brand-dark">
+                      <Link href={`/event/${e.code}`} target="_blank" title="View / register page" className="rounded-lg p-2 text-brand-muted hover:bg-gray-100 hover:text-brand-dark">
                         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1 1 0 010-.639C3.423 7.51 7.36 4.5 12 4.5s8.577 3.01 9.964 7.183a1 1 0 010 .639C20.577 16.49 16.64 19.5 12 19.5s-8.577-3.01-9.964-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                       </Link>
                       {role === "super_admin" && (

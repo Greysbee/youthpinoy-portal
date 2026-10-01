@@ -1,11 +1,9 @@
 import Navbar from "@/components/navbar";
 import Footer from "@/components/footer";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getCurrentParticipantId } from "@/lib/access";
-import { centavosToPesos } from "@/lib/admin";
 import RegistrationForm from "@/components/registration-form";
 import TicketPurchase, { type TicketTypeView, type BuyerDefaults } from "@/components/ticket-purchase";
 
@@ -26,7 +24,7 @@ export default async function EventDetailPage({
   const key = slug.replace(/[(),]/g, "");
   const { data: event } = await supabase
     .from("events")
-    .select("id, code, title, slug, description, price_centavos, capacity, start_at, end_at, is_online, venue, registration_fields, cover_image_url, status")
+    .select("id, code, title, slug, description, price_centavos, capacity, start_at, end_at, is_online, venue, venue_type, registration_fields, cover_image_url, status")
     .eq("status", "published")
     .or(`slug.eq.${key},code.eq.${key}`)
     .maybeSingle();
@@ -63,7 +61,6 @@ export default async function EventDetailPage({
       .filter((c): c is string => !!c),
   }));
   const hasTickets = ticketTypeViews.length > 0;
-  const minTicketPrice = hasTickets ? Math.min(...ticketTypeViews.map((t) => t.priceCentavos)) : 0;
 
   const participantId = await getCurrentParticipantId();
 
@@ -96,27 +93,35 @@ export default async function EventDetailPage({
     alreadyRegistered = !!reg;
   }
 
+  const formatLabel =
+    event.venue_type === "onsite"
+      ? `On-site${event.venue ? ` · ${event.venue}` : ""}`
+      : event.venue_type === "hybrid"
+        ? `Hybrid${event.venue ? ` · ${event.venue}` : ""}`
+        : "Online";
+
   return (
     <>
       <Navbar />
       <main className="flex-1">
         <section className="bg-brand-blue py-10 text-white sm:py-14">
-          <div className="mx-auto max-w-5xl px-4 sm:px-6">
-            <Link href="/events" className="text-sm text-white/70 hover:text-white">← All events</Link>
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-bold">{event.code}</span>
-              <span className="text-brand-gold font-bold">
-                {hasTickets
-                  ? minTicketPrice === 0
-                    ? "Tickets available"
-                    : `From ₱${centavosToPesos(minTicketPrice)}`
-                  : event.price_centavos === 0
-                    ? "Free"
-                    : `₱${centavosToPesos(event.price_centavos)}`}
-              </span>
+          <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 sm:px-6 md:flex-row md:items-center">
+            {event.cover_image_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={event.cover_image_url}
+                alt={event.title}
+                className="h-44 w-full shrink-0 rounded-xl object-cover md:h-40 md:w-64"
+              />
+            )}
+            <div>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-bold">{event.code}</span>
+                <span className="text-sm font-semibold text-brand-gold">{formatLabel}</span>
+              </div>
+              <h1 className="mt-2 text-3xl font-bold sm:text-4xl">{event.title}</h1>
+              {event.description && <p className="mt-3 max-w-2xl text-white/80">{event.description}</p>}
             </div>
-            <h1 className="mt-2 text-3xl font-bold sm:text-4xl">{event.title}</h1>
-            {event.description && <p className="mt-3 max-w-2xl text-white/80">{event.description}</p>}
           </div>
         </section>
 
@@ -126,59 +131,35 @@ export default async function EventDetailPage({
               You&apos;re registered! This event&apos;s videos are now unlocked in your Library.
             </div>
           )}
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px]">
-            <div>
-              <h2 className="text-lg font-bold text-brand-dark">Details</h2>
-              <dl className="mt-3 space-y-2 text-sm">
-                <div className="flex gap-2">
-                  <dt className="w-24 text-brand-muted">Format</dt>
-                  <dd>{event.is_online ? "Online" : `In person${event.venue ? ` · ${event.venue}` : ""}`}</dd>
-                </div>
-                {event.start_at && (
-                  <div className="flex gap-2">
-                    <dt className="w-24 text-brand-muted">Date</dt>
-                    <dd>{new Date(event.start_at).toLocaleDateString()}</dd>
-                  </div>
-                )}
-                {event.capacity != null && (
-                  <div className="flex gap-2">
-                    <dt className="w-24 text-brand-muted">Capacity</dt>
-                    <dd>{event.capacity}</dd>
-                  </div>
-                )}
-              </dl>
-            </div>
-
-            <div>
-              <h2 className="text-lg font-bold text-brand-dark">{hasTickets ? "Get tickets" : "Register"}</h2>
+          {hasTickets ? (
+            <TicketPurchase
+              event={{
+                id: event.id,
+                slug: event.slug,
+                registration_fields: event.registration_fields ?? [],
+              }}
+              ticketTypes={ticketTypeViews}
+              isLoggedIn={!!user}
+              buyer={buyerDefaults}
+            />
+          ) : (
+            <div className="max-w-md">
+              <h2 className="text-lg font-bold text-brand-dark">Register</h2>
               <div className="mt-3">
-                {hasTickets ? (
-                  <TicketPurchase
-                    event={{
-                      id: event.id,
-                      slug: event.slug,
-                      registration_fields: event.registration_fields ?? [],
-                    }}
-                    ticketTypes={ticketTypeViews}
-                    isLoggedIn={!!user}
-                    buyer={buyerDefaults}
-                  />
-                ) : (
-                  <RegistrationForm
-                    event={{
-                      id: event.id,
-                      slug: event.slug,
-                      price_centavos: event.price_centavos,
-                      registration_fields: event.registration_fields ?? [],
-                      capacity: event.capacity,
-                    }}
-                    isLoggedIn={!!user}
-                    alreadyRegistered={alreadyRegistered}
-                  />
-                )}
+                <RegistrationForm
+                  event={{
+                    id: event.id,
+                    slug: event.slug,
+                    price_centavos: event.price_centavos,
+                    registration_fields: event.registration_fields ?? [],
+                    capacity: event.capacity,
+                  }}
+                  isLoggedIn={!!user}
+                  alreadyRegistered={alreadyRegistered}
+                />
               </div>
             </div>
-          </div>
+          )}
         </section>
       </main>
       <Footer />

@@ -16,7 +16,7 @@ export default async function AdminOrdersPage() {
       <h1 className="text-2xl font-bold text-brand-dark">Orders</h1>
       <p className="mt-1 text-brand-muted">Read-only. Payments arrive in Milestone 3.</p>
 
-      <div className="mt-6 overflow-x-auto">
+      <div className="mt-6 max-h-[70vh] overflow-auto frozen-head">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wider text-brand-muted">

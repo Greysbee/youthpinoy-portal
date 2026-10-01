@@ -202,7 +202,7 @@ export default function ParticipantImport() {
           <p className="text-sm text-brand-dark">
             Preview: <strong>{preview.length}</strong> mapped rows across {files.length} file(s).
           </p>
-          <div className="mt-3 max-h-60 overflow-auto rounded border border-gray-100">
+          <div className="mt-3 max-h-60 overflow-auto rounded border border-gray-100 frozen-head">
             <table className="w-full text-xs">
               <thead className="bg-gray-50">
                 <tr>

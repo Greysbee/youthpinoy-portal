@@ -56,6 +56,76 @@ function toLocalInput(value?: string | null): string {
 const TT_INPUT =
   "mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent";
 
+// Searchable multi-select combobox: type to filter, tick several, add by batch.
+function MultiSelectCombo({
+  options,
+  selected,
+  onChange,
+  placeholder = "Search & select…",
+}: {
+  options: { id: string; code: string; title: string }[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const filtered = options.filter((o) =>
+    `${o.code} ${o.title}`.toLowerCase().includes(q.trim().toLowerCase())
+  );
+  const toggle = (id: string) =>
+    onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+
+  return (
+    <div className="relative mt-1">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between rounded-lg border border-gray-300 px-3 py-2.5 text-left text-sm shadow-sm outline-none focus:border-brand-accent"
+      >
+        <span className={selected.length ? "text-brand-dark" : "text-brand-muted"}>
+          {selected.length ? `${selected.length} selected` : placeholder}
+        </span>
+        <svg className="h-4 w-4 text-brand-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
+            <div className="border-b border-gray-100 p-2">
+              <input
+                autoFocus
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search…"
+                className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-brand-accent"
+              />
+            </div>
+            <div className="max-h-56 overflow-auto py-1">
+              {filtered.map((o) => (
+                <label key={o.id} className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50">
+                  <input type="checkbox" checked={selected.includes(o.id)} onChange={() => toggle(o.id)} className="h-4 w-4" />
+                  <span>
+                    <span className="font-medium">{o.code}</span> <span className="text-brand-muted">· {o.title}</span>
+                  </span>
+                </label>
+              ))}
+              {filtered.length === 0 && <p className="px-3 py-2 text-xs text-brand-muted">No matches.</p>}
+            </div>
+            <div className="flex justify-end border-t border-gray-100 p-2">
+              <button type="button" onClick={() => setOpen(false)} className="rounded-md bg-brand-blue px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-dark">
+                Done
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function TicketTypeCard({
   tt,
   index,
@@ -71,9 +141,8 @@ function TicketTypeCard({
   onChange: (patch: Partial<TicketTypeForm>) => void;
   onRemove: () => void;
 }) {
-  const [pick, setPick] = useState("");
   const codeById = (id: string) => allEvents.find((e) => e.id === id)?.code ?? id;
-  const selectable = allEvents.filter((e) => e.id !== eventId && !tt.includes.includes(e.id));
+  const options = allEvents.filter((e) => e.id !== eventId);
 
   return (
     <div className="rounded-lg border border-gray-200 p-3">
@@ -83,31 +152,19 @@ function TicketTypeCard({
       </div>
       <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
         <input placeholder="Ticket name (e.g. VIP)" value={tt.name} onChange={(e) => onChange({ name: e.target.value })} className={TT_INPUT} />
-        <input placeholder="Ticket code (e.g. VIP)" value={tt.code} onChange={(e) => onChange({ code: e.target.value })} className={TT_INPUT} />
+        <input placeholder="Ticket code (e.g. vip)" value={tt.code} onChange={(e) => onChange({ code: e.target.value.toLowerCase().replace(/\s+/g, "") })} className={TT_INPUT} />
         <input type="number" min="0" step="0.01" placeholder="Price (₱)" value={tt.price} onChange={(e) => onChange({ price: e.target.value })} className={TT_INPUT} />
         <input type="number" min="0" placeholder="Capacity (optional)" value={tt.capacity} onChange={(e) => onChange({ capacity: e.target.value })} className={TT_INPUT} />
       </div>
 
       <div className="mt-3">
         <p className="text-xs font-medium text-brand-dark">Inclusions (what this ticket unlocks)</p>
-        <div className="mt-1 flex gap-2">
-          <select value={pick} onChange={(e) => setPick(e.target.value)} className={TT_INPUT}>
-            <option value="">— Select a course/event —</option>
-            {selectable.map((e) => (
-              <option key={e.id} value={e.id}>{e.code} · {e.title}</option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={() => {
-              if (pick && !tt.includes.includes(pick)) onChange({ includes: [...tt.includes, pick] });
-              setPick("");
-            }}
-            className="min-h-11 rounded-lg bg-brand-blue px-4 text-sm font-semibold text-white hover:bg-brand-dark"
-          >
-            Add
-          </button>
-        </div>
+        <MultiSelectCombo
+          options={options}
+          selected={tt.includes}
+          onChange={(ids) => onChange({ includes: ids })}
+          placeholder="Search & select courses/events…"
+        />
         {tt.includes.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
             {tt.includes.map((id) => (
@@ -140,6 +197,11 @@ export default function EventForm({
 
   const [includes, setIncludes] = useState<string[]>(event?.includedEventIds ?? []);
   const [pick, setPick] = useState("");
+
+  const [slug, setSlug] = useState(event?.slug ?? "");
+  const site = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/+$/, "");
+  const domainLabel = site.replace(/^https?:\/\//, "") || "your-site.com";
+  const viewPath = slug.trim() || event?.code || "";
 
   const [ticketTypes, setTicketTypes] = useState<TicketTypeForm[]>(event?.ticketTypes ?? []);
   function updateTT(i: number, patch: Partial<TicketTypeForm>) {
@@ -266,7 +328,29 @@ export default function EventForm({
 
       <div>
         <label className={label}>Slug</label>
-        <input name="slug" defaultValue={event?.slug} placeholder="auto from title if blank" className={input} />
+        <p className="mt-0.5 text-xs text-brand-muted">{domainLabel}/event/</p>
+        <div className="mt-1 flex gap-2">
+          <input
+            name="slug"
+            value={slug}
+            onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/\s+/g, "-"))}
+            placeholder="auto from title if blank"
+            className="block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent"
+          />
+          {viewPath && (
+            <a
+              href={`${site}/event/${viewPath}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="View page"
+              className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-gray-300 px-3 text-sm text-brand-dark hover:bg-gray-50"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14 5h5v5M19 5l-7 7M10 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-4" />
+              </svg>
+            </a>
+          )}
+        </div>
       </div>
 
       <div>

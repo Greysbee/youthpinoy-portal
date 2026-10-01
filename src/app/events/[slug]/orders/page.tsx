@@ -60,7 +60,7 @@ export default async function EventOrdersPage({
         <span className="rounded-lg bg-brand-blue/10 px-3 py-1.5 text-brand-blue">Revenue: <strong>₱{centavosToPesos(revenue)}</strong></span>
       </div>
 
-      <div className="mt-6 overflow-x-auto">
+      <div className="mt-6 max-h-[70vh] overflow-auto frozen-head">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wider text-brand-muted">
