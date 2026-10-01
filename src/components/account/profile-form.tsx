@@ -2,10 +2,11 @@
 
 import { useActionState, useState } from "react";
 import { updateProfile, type ActionState } from "@/app/account/actions";
-import { COUNTRIES, DEFAULT_COUNTRY, dialFor, DIOCESES } from "@/lib/reference";
+import { COUNTRIES, DEFAULT_COUNTRY, dialFor, DIOCESES, TITLES } from "@/lib/reference";
 
 export type ProfileValues = {
   email: string;
+  title: string;
   firstName: string;
   middleName: string;
   lastName: string;
@@ -38,7 +39,18 @@ export default function ProfileForm(props: ProfileValues) {
         <input value={props.email} disabled className={`${input} bg-gray-50 text-brand-muted`} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+        <div>
+          <label className={label}>Title</label>
+          <select name="title" defaultValue={props.title} className={input}>
+            <option value="">—</option>
+            {TITLES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </div>
         <div>
           <label className={label}>First name</label>
           <input name="first_name" defaultValue={props.firstName} className={input} />

@@ -3,9 +3,11 @@ import Footer from "@/components/footer";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createAdminClient } from "@/lib/supabase-admin";
 import { getCurrentParticipantId } from "@/lib/access";
 import { centavosToPesos } from "@/lib/admin";
 import RegistrationForm from "@/components/registration-form";
+import TicketPurchase, { type TicketTypeView, type BuyerDefaults } from "@/components/ticket-purchase";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +36,55 @@ export default async function EventDetailPage({
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Ticket types (if any) replace the single-price registration flow.
+  const { data: ticketTypesRaw } = await supabase
+    .from("ticket_types")
+    .select("id, name, code, price_centavos, capacity, sort_order, ticket_type_includes(included_event_id)")
+    .eq("event_id", event.id)
+    .order("sort_order");
+  const tts = ticketTypesRaw ?? [];
+  const incIds = [
+    ...new Set(
+      tts.flatMap((t) => ((t.ticket_type_includes as { included_event_id: string }[]) ?? []).map((i) => i.included_event_id))
+    ),
+  ];
+  const { data: incEvents } = incIds.length
+    ? await supabase.from("events").select("id, code").in("id", incIds)
+    : { data: [] as { id: string; code: string }[] };
+  const codeById = new Map((incEvents ?? []).map((e) => [e.id, e.code]));
+  const ticketTypeViews: TicketTypeView[] = tts.map((t) => ({
+    id: t.id as string,
+    name: t.name as string,
+    code: t.code as string,
+    priceCentavos: (t.price_centavos as number) ?? 0,
+    capacity: (t.capacity as number) ?? null,
+    includes: ((t.ticket_type_includes as { included_event_id: string }[]) ?? [])
+      .map((i) => codeById.get(i.included_event_id))
+      .filter((c): c is string => !!c),
+  }));
+  const hasTickets = ticketTypeViews.length > 0;
+  const minTicketPrice = hasTickets ? Math.min(...ticketTypeViews.map((t) => t.priceCentavos)) : 0;
+
   const participantId = await getCurrentParticipantId();
+
+  // Prefill the buyer's details on the ticket form (editable, saved on purchase).
+  let buyerDefaults: BuyerDefaults = { title: "", firstName: "", lastName: "", mobile: "" };
+  if (hasTickets && participantId) {
+    const { data: me } = await createAdminClient()
+      .from("participants")
+      .select("title, first_name, last_name, mobile")
+      .eq("id", participantId)
+      .single();
+    if (me) {
+      buyerDefaults = {
+        title: me.title ?? "",
+        firstName: me.first_name ?? "",
+        lastName: me.last_name ?? "",
+        mobile: me.mobile ?? "",
+      };
+    }
+  }
+
   let alreadyRegistered = false;
   if (participantId) {
     const { data: reg } = await supabase
@@ -56,7 +106,13 @@ export default async function EventDetailPage({
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-bold">{event.code}</span>
               <span className="text-brand-gold font-bold">
-                {event.price_centavos === 0 ? "Free" : `₱${centavosToPesos(event.price_centavos)}`}
+                {hasTickets
+                  ? minTicketPrice === 0
+                    ? "Tickets available"
+                    : `From ₱${centavosToPesos(minTicketPrice)}`
+                  : event.price_centavos === 0
+                    ? "Free"
+                    : `₱${centavosToPesos(event.price_centavos)}`}
               </span>
             </div>
             <h1 className="mt-2 text-3xl font-bold sm:text-4xl">{event.title}</h1>
@@ -94,19 +150,32 @@ export default async function EventDetailPage({
             </div>
 
             <div>
-              <h2 className="text-lg font-bold text-brand-dark">Register</h2>
+              <h2 className="text-lg font-bold text-brand-dark">{hasTickets ? "Get tickets" : "Register"}</h2>
               <div className="mt-3">
-                <RegistrationForm
-                  event={{
-                    id: event.id,
-                    slug: event.slug,
-                    price_centavos: event.price_centavos,
-                    registration_fields: event.registration_fields ?? [],
-                    capacity: event.capacity,
-                  }}
-                  isLoggedIn={!!user}
-                  alreadyRegistered={alreadyRegistered}
-                />
+                {hasTickets ? (
+                  <TicketPurchase
+                    event={{
+                      id: event.id,
+                      slug: event.slug,
+                      registration_fields: event.registration_fields ?? [],
+                    }}
+                    ticketTypes={ticketTypeViews}
+                    isLoggedIn={!!user}
+                    buyer={buyerDefaults}
+                  />
+                ) : (
+                  <RegistrationForm
+                    event={{
+                      id: event.id,
+                      slug: event.slug,
+                      price_centavos: event.price_centavos,
+                      registration_fields: event.registration_fields ?? [],
+                      capacity: event.capacity,
+                    }}
+                    isLoggedIn={!!user}
+                    alreadyRegistered={alreadyRegistered}
+                  />
+                )}
               </div>
             </div>
           </div>

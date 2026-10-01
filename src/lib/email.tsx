@@ -345,6 +345,41 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+// Ticket assignment / transfer email. Re-sendable (not idempotent-gated), like the
+// group invite above.
+export function ticketInviteEmailHtml(opts: {
+  ticketCode: string;
+  eventTitle: string;
+  eventCode: string;
+  ticketTypeName: string;
+  purchaserName: string;
+  url: string;
+}): string {
+  const tc = escapeHtml(opts.ticketCode);
+  const et = escapeHtml(opts.eventTitle);
+  const ev = escapeHtml(opts.eventCode);
+  const tt = escapeHtml(opts.ticketTypeName);
+  const buyer = escapeHtml(opts.purchaserName);
+  const url = escapeHtml(opts.url);
+  const site = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  return `<div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto">
+    <div style="background:#033A7A;padding:24px;text-align:center;border-radius:8px 8px 0 0">
+      <img src="${site}/email/youthpinoy-email-logo.png" width="280" alt="YouthPinoy" style="margin:0 auto" />
+    </div>
+    <div style="background:#fff;padding:32px;color:#1a1a1a;font-size:16px;line-height:1.6">
+      <h2 style="color:#033A7A;margin-top:0">You've received a ticket to ${ev}</h2>
+      <p>${buyer} assigned you a <strong>${tt}</strong> ticket for <strong>${et}</strong>.</p>
+      <p style="margin:16px 0">
+        <span style="display:inline-block;background:#FFF3D6;color:#8a6d00;border:1px solid #F2C94C;border-radius:8px;padding:10px 16px;font-weight:700;font-size:18px;letter-spacing:1px">Ticket ${tc}</span>
+      </p>
+      <p>Create your profile (or sign in) and <strong>accept</strong> the ticket to confirm your participation and unlock your access:</p>
+      <p><a href="${url}" style="display:inline-block;background:#033A7A;color:#fff;padding:12px 22px;border-radius:6px;text-decoration:none;font-weight:600">Accept my ticket</a></p>
+      <p style="color:#6b7280;font-size:12px">Or paste this link:<br>${url}</p>
+      <p style="color:#6b7280;font-size:12px">If you don't accept, your participation for this ticket won't be confirmed.</p>
+    </div>
+  </div>`;
+}
+
 export function inviteEmailHtml(opts: {
   groupName: string;
   eventCode: string;

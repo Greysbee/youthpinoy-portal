@@ -22,6 +22,22 @@ export const COUNTRIES: Country[] = [
 
 export const DEFAULT_COUNTRY = "PH";
 
+// Personal title / honorific for profiles.
+export const TITLES: string[] = [
+  "Mr.",
+  "Ms.",
+  "Mrs.",
+  "Mx.",
+  "Dr.",
+  "Rev.",
+  "Fr.",
+  "Sr.",
+  "Bro.",
+  "Deacon",
+  "Bishop",
+  "Msgr.",
+];
+
 export function dialFor(code: string): string {
   return COUNTRIES.find((c) => c.code === code)?.dial ?? "";
 }

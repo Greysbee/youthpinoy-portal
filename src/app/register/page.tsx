@@ -9,7 +9,8 @@ import { validatePassword } from "@/lib/password-validation";
 import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -40,9 +41,10 @@ export default function RegisterPage() {
 
     setLoading(true);
     const supabase = createClient();
+    const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
     const { error: signUpError } = await supabase.auth.signUp({
       email, password,
-      options: { data: { full_name: name } },
+      options: { data: { full_name: fullName, first_name: firstName.trim(), last_name: lastName.trim() } },
     });
 
     if (signUpError) { setError(signUpError.message); setLoading(false); return; }
@@ -60,16 +62,24 @@ export default function RegisterPage() {
         <div className="w-full max-w-md">
           <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
             <h1 className="text-2xl font-bold text-brand-dark text-center">Create Your Account</h1>
-            <p className="mt-1 text-center text-sm text-brand-muted">Join YouthPinoy and start learning</p>
+            <p className="mt-1 text-center text-sm text-brand-muted">Join YouthPinoy and let&apos;s connect and collab</p>
 
             {error && <div className="mt-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>}
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-brand-dark">Full Name</label>
-                <input id="name" type="text" required value={name} onChange={(e) => setName(e.target.value)}
-                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none"
-                  placeholder="Juan dela Cruz" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="first_name" className="block text-sm font-medium text-brand-dark">First name</label>
+                  <input id="first_name" type="text" required value={firstName} onChange={(e) => setFirstName(e.target.value)}
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none"
+                    placeholder="Juan" />
+                </div>
+                <div>
+                  <label htmlFor="last_name" className="block text-sm font-medium text-brand-dark">Last name</label>
+                  <input id="last_name" type="text" required value={lastName} onChange={(e) => setLastName(e.target.value)}
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none"
+                    placeholder="Dela Cruz" />
+                </div>
               </div>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-brand-dark">Email</label>

@@ -27,11 +27,30 @@ export default async function GroupPage({
   if (group.owner_participant_id !== viewer.participantId && viewer.role !== "admin") redirect("/account");
 
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  const { data: members } = await admin
-    .from("group_members")
-    .select("id, email, status, invite_token")
-    .eq("group_id", id)
-    .neq("status", "removed");
+  const [{ data: members }, { data: tickets }] = await Promise.all([
+    admin.from("group_members").select("id, email, status, invite_token").eq("group_id", id).neq("status", "removed"),
+    admin
+      .from("tickets")
+      .select("id, code, status, assigned_email, assigned_participant_id, invite_token, seq")
+      .eq("group_id", id)
+      .order("seq"),
+  ]);
+
+  // Which assigned emails already have an account (profile)?
+  const assignedEmails = [...new Set((tickets ?? []).map((t) => t.assigned_email).filter(Boolean) as string[])];
+  const accountEmails = new Set<string>();
+  if (assignedEmails.length) {
+    const { data: parts } = await admin.from("participants").select("id, email").in("email", assignedEmails);
+    const emailByPid = new Map((parts ?? []).map((p) => [p.id as string, p.email as string]));
+    const partIds = (parts ?? []).map((p) => p.id as string);
+    if (partIds.length) {
+      const { data: profs } = await admin.from("profiles").select("participant_id").in("participant_id", partIds);
+      for (const pr of profs ?? []) {
+        const em = pr.participant_id ? emailByPid.get(pr.participant_id as string) : null;
+        if (em) accountEmails.add(em);
+      }
+    }
+  }
 
   const ev = group.events as { code?: string } | null;
   const view: OwnedGroupView = {
@@ -44,6 +63,15 @@ export default async function GroupPage({
       email: m.email,
       status: m.status,
       inviteUrl: `${site}/invite/${m.invite_token}`,
+    })),
+    tickets: (tickets ?? []).map((t) => ({
+      id: t.id,
+      code: t.code,
+      status: t.status,
+      assignedEmail: t.assigned_email,
+      accepted: t.status === "accepted",
+      hasAccount: t.assigned_email ? accountEmails.has(t.assigned_email) : false,
+      inviteUrl: t.invite_token ? `${site}/ticket/${t.invite_token}` : null,
     })),
   };
 

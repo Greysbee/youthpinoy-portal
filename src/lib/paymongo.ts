@@ -20,6 +20,8 @@ export type LineItem = {
   quantity: number;
 };
 
+export type Billing = { name?: string; email?: string; phone?: string };
+
 export async function createCheckoutSession(opts: {
   lineItems: LineItem[];
   description?: string;
@@ -27,21 +29,28 @@ export async function createCheckoutSession(opts: {
   successUrl: string;
   cancelUrl: string;
   paymentMethodTypes?: string[];
+  billing?: Billing;
 }): Promise<{ id: string; checkoutUrl: string }> {
-  const body = {
-    data: {
-      attributes: {
-        line_items: opts.lineItems,
-        payment_method_types:
-          opts.paymentMethodTypes ?? ["card", "gcash", "paymaya", "grab_pay"],
-        success_url: opts.successUrl,
-        cancel_url: opts.cancelUrl,
-        description: opts.description,
-        send_email_receipt: false,
-        metadata: opts.metadata ?? {},
-      },
-    },
+  // Only include billing keys that have a value (PayMongo rejects empty strings).
+  const billing: Billing = {};
+  if (opts.billing?.name) billing.name = opts.billing.name;
+  if (opts.billing?.email) billing.email = opts.billing.email;
+  if (opts.billing?.phone) billing.phone = opts.billing.phone;
+
+  const attributes: Record<string, unknown> = {
+    line_items: opts.lineItems,
+    payment_method_types:
+      opts.paymentMethodTypes ?? ["card", "gcash", "paymaya", "grab_pay"],
+    success_url: opts.successUrl,
+    cancel_url: opts.cancelUrl,
+    description: opts.description,
+    send_email_receipt: false,
+    metadata: opts.metadata ?? {},
   };
+  // Prefill the buyer's details on the PayMongo page so they don't re-enter them.
+  if (Object.keys(billing).length) attributes.billing = billing;
+
+  const body = { data: { attributes } };
 
   const res = await fetch(`${API}/checkout_sessions`, {
     method: "POST",

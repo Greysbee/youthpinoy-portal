@@ -33,15 +33,41 @@ export default async function AccountPage() {
         .neq("status", "removed"),
     ]);
 
-  // Members for owned groups.
+  // Members + tickets for owned groups.
   const ownedIds = (ownedGroups ?? []).map((g) => g.id);
-  const { data: members } = ownedIds.length
-    ? await admin
-        .from("group_members")
-        .select("id, group_id, email, status, invite_token")
-        .in("group_id", ownedIds)
-        .neq("status", "removed")
-    : { data: [] as { id: string; group_id: string; email: string; status: string; invite_token: string }[] };
+  const [{ data: members }, { data: ownedTickets }] = ownedIds.length
+    ? await Promise.all([
+        admin
+          .from("group_members")
+          .select("id, group_id, email, status, invite_token")
+          .in("group_id", ownedIds)
+          .neq("status", "removed"),
+        admin
+          .from("tickets")
+          .select("id, group_id, code, status, assigned_email, assigned_participant_id, invite_token, seq")
+          .in("group_id", ownedIds)
+          .order("seq"),
+      ])
+    : [
+        { data: [] as { id: string; group_id: string; email: string; status: string; invite_token: string }[] },
+        { data: [] as { id: string; group_id: string; code: string; status: string; assigned_email: string | null; assigned_participant_id: string | null; invite_token: string | null; seq: number }[] },
+      ];
+
+  // Which assigned emails have actually created an account (profile) yet?
+  const assignedEmails = [...new Set((ownedTickets ?? []).map((t) => t.assigned_email).filter(Boolean) as string[])];
+  const accountEmails = new Set<string>();
+  if (assignedEmails.length) {
+    const { data: parts } = await admin.from("participants").select("id, email").in("email", assignedEmails);
+    const pidByEmail = new Map((parts ?? []).map((p) => [p.id as string, p.email as string]));
+    const partIds = (parts ?? []).map((p) => p.id as string);
+    if (partIds.length) {
+      const { data: profs } = await admin.from("profiles").select("participant_id").in("participant_id", partIds);
+      for (const pr of profs ?? []) {
+        const em = pr.participant_id ? pidByEmail.get(pr.participant_id as string) : null;
+        if (em) accountEmails.add(em);
+      }
+    }
+  }
 
   const ownedViews: OwnedGroupView[] = (ownedGroups ?? []).map((g) => {
     const ev = g.events as { code?: string } | null;
@@ -58,8 +84,27 @@ export default async function AccountPage() {
           status: m.status,
           inviteUrl: `${site}/invite/${m.invite_token}`,
         })),
+      tickets: (ownedTickets ?? [])
+        .filter((t) => t.group_id === g.id)
+        .map((t) => ({
+          id: t.id,
+          code: t.code,
+          status: t.status,
+          assignedEmail: t.assigned_email,
+          accepted: t.status === "accepted",
+          hasAccount: t.assigned_email ? accountEmails.has(t.assigned_email) : false,
+          inviteUrl: t.invite_token ? `${site}/ticket/${t.invite_token}` : null,
+        })),
     };
   });
+
+  // Tickets this participant holds (accepted) — shown under My events.
+  const { data: myTickets } = await admin
+    .from("tickets")
+    .select("code, status, events(code, title)")
+    .eq("assigned_participant_id", pid)
+    .eq("status", "accepted")
+    .order("seq");
 
   // Owner names for memberships.
   const ownerIds = [
@@ -96,6 +141,7 @@ export default async function AccountPage() {
               <div className="mt-4">
                 <ProfileForm
                   email={participant?.email ?? viewer.email ?? ""}
+                  title={participant?.title ?? ""}
                   firstName={participant?.first_name ?? ""}
                   middleName={participant?.middle_name ?? ""}
                   lastName={participant?.last_name ?? ""}
@@ -134,15 +180,28 @@ export default async function AccountPage() {
               <section className={card}>
                 <h2 className={h2}>My events</h2>
                 <ul className="mt-3 space-y-1 text-sm">
+                  {(myTickets ?? []).map((t, i) => {
+                    const ev = t.events as { code?: string; title?: string } | null;
+                    return (
+                      <li key={`t${i}`}>
+                        {ev?.title || ev?.code}{" "}
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                          {t.code}
+                        </span>
+                      </li>
+                    );
+                  })}
                   {(registrations ?? []).map((r, i) => {
                     const ev = r.events as { code?: string; title?: string } | null;
                     return (
-                      <li key={i}>
+                      <li key={`r${i}`}>
                         {ev?.code} <span className="text-brand-muted">· {r.status}</span>
                       </li>
                     );
                   })}
-                  {(registrations ?? []).length === 0 && <li className="text-brand-muted">No registrations yet.</li>}
+                  {(myTickets ?? []).length === 0 && (registrations ?? []).length === 0 && (
+                    <li className="text-brand-muted">No events yet.</li>
+                  )}
                 </ul>
 
                 {(memberships ?? []).length > 0 && (
@@ -166,7 +225,7 @@ export default async function AccountPage() {
 
             <section className={card}>
               <h2 className={h2}>My groups</h2>
-              <p className="mt-1 text-xs text-brand-muted">Invite people to the seats you bought.</p>
+              <p className="mt-1 text-xs text-brand-muted">Assign the tickets you bought. Only you can assign or transfer them.</p>
               <div className="mt-4">
                 <GroupManager groups={ownedViews} />
               </div>

@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { getViewer } from "@/lib/viewer";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { normalizeEmail, isValidEmail } from "@/lib/admin";
-import { deliver, inviteEmailHtml, sendEmail } from "@/lib/email";
+import { deliver, inviteEmailHtml, ticketInviteEmailHtml, sendEmail } from "@/lib/email";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type ActionState = { error?: string; notice?: string };
@@ -38,6 +38,7 @@ export async function updateProfile(_prev: ActionState, formData: FormData): Pro
   const { error } = await admin
     .from("participants")
     .update({
+      title: ((formData.get("title") as string) || "").trim() || null,
       first_name: first || null,
       middle_name: middle || null,
       last_name: last || null,
@@ -224,6 +225,210 @@ export async function resendInvite(formData: FormData): Promise<void> {
     }),
   });
   revalidatePath("/account");
+}
+
+// ---------------------------------------------------------------------------
+// Tickets — assign / transfer / resend / accept.
+// ---------------------------------------------------------------------------
+
+// Load a ticket and verify the current viewer is its purchaser (or a super admin).
+async function loadOwnedTicket(admin: SupabaseClient, ticketId: string, participantId: string, role: string | null) {
+  const { data: ticket } = await admin
+    .from("tickets")
+    .select("id, event_id, ticket_type_id, order_id, group_id, code, status, assigned_email, assigned_participant_id, purchaser_participant_id")
+    .eq("id", ticketId)
+    .single();
+  if (!ticket) return null;
+  if (ticket.purchaser_participant_id !== participantId && role !== "super_admin") return null;
+  return ticket;
+}
+
+// Email the assignee of a ticket (used by assign + resend).
+async function sendTicketInvite(
+  admin: SupabaseClient,
+  ticket: { code: string; event_id: string; ticket_type_id: string | null; invite_token: string; assigned_email: string },
+  purchaserParticipantId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const [{ data: ev }, { data: tt }, { data: buyer }] = await Promise.all([
+    admin.from("events").select("code, title").eq("id", ticket.event_id).single(),
+    ticket.ticket_type_id
+      ? admin.from("ticket_types").select("name").eq("id", ticket.ticket_type_id).single()
+      : Promise.resolve({ data: null }),
+    admin.from("participants").select("full_name, email").eq("id", purchaserParticipantId).single(),
+  ]);
+  return deliver({
+    to: ticket.assigned_email,
+    subject: `Your ticket ${ticket.code} for ${ev?.code ?? "an event"} on YouthPinoy`,
+    html: ticketInviteEmailHtml({
+      ticketCode: ticket.code,
+      eventTitle: ev?.title ?? "the event",
+      eventCode: ev?.code ?? "the event",
+      ticketTypeName: (tt as { name?: string } | null)?.name ?? "General",
+      purchaserName: buyer?.full_name || buyer?.email || "The purchaser",
+      url: `${site}/ticket/${ticket.invite_token}`,
+    }),
+  });
+}
+
+// Assign a reserved ticket to an email, or transfer an already-assigned one to a new
+// email. Only the purchaser can do this. Transferring revokes the previous holder's
+// access for this ticket; the new assignee gets access only once they accept.
+export async function assignTicket(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const viewer = await getViewer();
+  if (!viewer?.participantId) return { error: "Not signed in." };
+  const admin = createAdminClient();
+
+  const ticketId = formData.get("ticket_id") as string;
+  const email = normalizeEmail((formData.get("email") as string) || "");
+  if (!isValidEmail(email)) return { error: "Enter a valid email address." };
+
+  const ticket = await loadOwnedTicket(admin, ticketId, viewer.participantId, viewer.role);
+  if (!ticket) return { error: "Ticket not found or not yours." };
+
+  // Can't collide with another ticket in the same event already held by this email.
+  const { data: clash } = await admin
+    .from("tickets")
+    .select("id")
+    .eq("event_id", ticket.event_id)
+    .eq("assigned_email", email)
+    .neq("id", ticketId)
+    .maybeSingle();
+  if (clash) return { error: "That email already holds another ticket for this event." };
+
+  // Transfer away from a previous holder: revoke exactly this ticket's entitlements.
+  if (ticket.assigned_participant_id) {
+    await admin
+      .from("entitlements")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("ticket_id", ticketId)
+      .is("revoked_at", null);
+  }
+
+  const token = crypto.randomBytes(24).toString("hex");
+  const { error: upErr } = await admin
+    .from("tickets")
+    .update({
+      assigned_email: email,
+      assigned_participant_id: null,
+      invite_token: token,
+      status: "assigned",
+      assigned_at: new Date().toISOString(),
+      accepted_at: null,
+    })
+    .eq("id", ticketId);
+  if (upErr) return { error: upErr.message };
+
+  const send = await sendTicketInvite(
+    admin,
+    { code: ticket.code, event_id: ticket.event_id, ticket_type_id: ticket.ticket_type_id, invite_token: token, assigned_email: email },
+    viewer.participantId
+  );
+
+  revalidatePath("/account");
+  return send.ok
+    ? { notice: `Ticket ${ticket.code} assigned to ${email}.` }
+    : { notice: `Ticket ${ticket.code} assigned to ${email}, but the email failed to send (${send.error}). Share the link from the list.` };
+}
+
+export async function resendTicketInvite(formData: FormData): Promise<void> {
+  const viewer = await getViewer();
+  if (!viewer?.participantId) return;
+  const admin = createAdminClient();
+  const ticketId = formData.get("ticket_id") as string;
+
+  const ticket = await loadOwnedTicket(admin, ticketId, viewer.participantId, viewer.role);
+  if (!ticket || !ticket.assigned_email) return;
+
+  // Ensure a token exists.
+  let token = (await admin.from("tickets").select("invite_token").eq("id", ticketId).single()).data?.invite_token as
+    | string
+    | null;
+  if (!token) {
+    token = crypto.randomBytes(24).toString("hex");
+    await admin.from("tickets").update({ invite_token: token }).eq("id", ticketId);
+  }
+
+  await sendTicketInvite(
+    admin,
+    { code: ticket.code, event_id: ticket.event_id, ticket_type_id: ticket.ticket_type_id, invite_token: token, assigned_email: ticket.assigned_email },
+    viewer.participantId
+  );
+  revalidatePath("/account");
+}
+
+// The assignee accepts their ticket: links the ticket to them and grants access to
+// the ticket type's inclusions (plus the event itself). Access happens ONLY here.
+export async function acceptTicket(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const token = formData.get("token") as string;
+  const viewer = await getViewer();
+  if (!viewer?.participantId || !viewer.email) redirect(`/login?next=/ticket/${token}`);
+
+  const admin = createAdminClient();
+  const { data: ticket } = await admin
+    .from("tickets")
+    .select("id, event_id, ticket_type_id, order_id, code, status, assigned_email, purchaser_participant_id, group_id")
+    .eq("invite_token", token)
+    .single();
+  if (!ticket) return { error: "This ticket link is not valid." };
+  if (!ticket.assigned_email) return { error: "This ticket is not assigned to anyone." };
+  if (normalizeEmail(viewer!.email!) !== ticket.assigned_email)
+    return { error: `This ticket is for ${ticket.assigned_email}. Sign in with that email to accept.` };
+
+  await admin
+    .from("tickets")
+    .update({ status: "accepted", assigned_participant_id: viewer!.participantId, accepted_at: new Date().toISOString() })
+    .eq("id", ticket.id);
+
+  // Grant access: the event itself + the ticket type's inclusions.
+  const targetIds = new Set<string>([ticket.event_id as string]);
+  if (ticket.ticket_type_id) {
+    const { data: incs } = await admin
+      .from("ticket_type_includes")
+      .select("included_event_id")
+      .eq("ticket_type_id", ticket.ticket_type_id);
+    for (const i of incs ?? []) if (i.included_event_id) targetIds.add(i.included_event_id as string);
+  }
+  for (const evId of targetIds) {
+    const { data: ent } = await admin
+      .from("entitlements")
+      .select("id")
+      .eq("participant_id", viewer!.participantId)
+      .eq("event_id", evId)
+      .eq("ticket_id", ticket.id)
+      .is("revoked_at", null)
+      .maybeSingle();
+    if (!ent) {
+      await admin.from("entitlements").insert({
+        participant_id: viewer!.participantId,
+        event_id: evId,
+        type: "event",
+        source: "ticket",
+        order_id: ticket.order_id,
+        ticket_id: ticket.id,
+      });
+    }
+  }
+
+  // Notify the purchaser their ticket was accepted (non-fatal).
+  const { data: buyer } = await admin
+    .from("participants")
+    .select("email")
+    .eq("id", ticket.purchaser_participant_id)
+    .single();
+  const { data: ev } = await admin.from("events").select("code, title").eq("id", ticket.event_id).single();
+  if (buyer?.email) {
+    await deliver({
+      to: buyer.email,
+      subject: `${ticket.assigned_email} accepted ticket ${ticket.code} (${ev?.code ?? "event"})`,
+      html: `<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1a1a1a">
+        <p><strong>${ticket.assigned_email}</strong> accepted ticket <strong>${ticket.code}</strong> for ${ev?.title ?? "your event"}.</p>
+        <p style="color:#6b7280;font-size:13px">You can see all your tickets under My Account → My groups.</p>
+      </div>`,
+    });
+  }
+
+  redirect("/library");
 }
 
 export async function acceptInvite(_prev: ActionState, formData: FormData): Promise<ActionState> {

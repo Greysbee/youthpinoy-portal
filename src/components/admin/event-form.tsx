@@ -13,6 +13,15 @@ type RegField = {
   options?: string[];
 };
 
+export type TicketTypeForm = {
+  id?: string;
+  name: string;
+  code: string;
+  price: string; // pesos, as text
+  capacity: string;
+  includes: string[]; // event ids this type unlocks
+};
+
 export type EventInput = {
   id?: string;
   code?: string;
@@ -31,6 +40,7 @@ export type EventInput = {
   cover_image_url?: string | null;
   registration_fields?: RegField[];
   includedEventIds?: string[];
+  ticketTypes?: TicketTypeForm[];
 };
 
 const FIELD_TYPES = ["text", "textarea", "email", "phone", "number", "select", "checkbox"];
@@ -41,6 +51,76 @@ function toLocalInput(value?: string | null): string {
   if (isNaN(d.getTime())) return "";
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+const TT_INPUT =
+  "mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent";
+
+function TicketTypeCard({
+  tt,
+  index,
+  allEvents,
+  eventId,
+  onChange,
+  onRemove,
+}: {
+  tt: TicketTypeForm;
+  index: number;
+  allEvents: { id: string; code: string; title: string }[];
+  eventId?: string;
+  onChange: (patch: Partial<TicketTypeForm>) => void;
+  onRemove: () => void;
+}) {
+  const [pick, setPick] = useState("");
+  const codeById = (id: string) => allEvents.find((e) => e.id === id)?.code ?? id;
+  const selectable = allEvents.filter((e) => e.id !== eventId && !tt.includes.includes(e.id));
+
+  return (
+    <div className="rounded-lg border border-gray-200 p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Ticket type {index + 1}</span>
+        <button type="button" onClick={onRemove} className="text-sm text-brand-red hover:underline">Remove</button>
+      </div>
+      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <input placeholder="Ticket name (e.g. VIP)" value={tt.name} onChange={(e) => onChange({ name: e.target.value })} className={TT_INPUT} />
+        <input placeholder="Ticket code (e.g. VIP)" value={tt.code} onChange={(e) => onChange({ code: e.target.value })} className={TT_INPUT} />
+        <input type="number" min="0" step="0.01" placeholder="Price (₱)" value={tt.price} onChange={(e) => onChange({ price: e.target.value })} className={TT_INPUT} />
+        <input type="number" min="0" placeholder="Capacity (optional)" value={tt.capacity} onChange={(e) => onChange({ capacity: e.target.value })} className={TT_INPUT} />
+      </div>
+
+      <div className="mt-3">
+        <p className="text-xs font-medium text-brand-dark">Inclusions (what this ticket unlocks)</p>
+        <div className="mt-1 flex gap-2">
+          <select value={pick} onChange={(e) => setPick(e.target.value)} className={TT_INPUT}>
+            <option value="">— Select a course/event —</option>
+            {selectable.map((e) => (
+              <option key={e.id} value={e.id}>{e.code} · {e.title}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => {
+              if (pick && !tt.includes.includes(pick)) onChange({ includes: [...tt.includes, pick] });
+              setPick("");
+            }}
+            className="min-h-11 rounded-lg bg-brand-blue px-4 text-sm font-semibold text-white hover:bg-brand-dark"
+          >
+            Add
+          </button>
+        </div>
+        {tt.includes.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {tt.includes.map((id) => (
+              <span key={id} className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-sm">
+                {codeById(id)}
+                <button type="button" onClick={() => onChange({ includes: tt.includes.filter((i) => i !== id) })} className="text-brand-red hover:underline">×</button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function EventForm({
@@ -60,6 +140,17 @@ export default function EventForm({
 
   const [includes, setIncludes] = useState<string[]>(event?.includedEventIds ?? []);
   const [pick, setPick] = useState("");
+
+  const [ticketTypes, setTicketTypes] = useState<TicketTypeForm[]>(event?.ticketTypes ?? []);
+  function updateTT(i: number, patch: Partial<TicketTypeForm>) {
+    setTicketTypes((t) => t.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  }
+  function addTT() {
+    setTicketTypes((t) => [...t, { name: "", code: "", price: "", capacity: "", includes: [] }]);
+  }
+  function removeTT(i: number) {
+    setTicketTypes((t) => t.filter((_, idx) => idx !== i));
+  }
 
   const selectable = allEvents.filter((e) => e.id !== event?.id && !includes.includes(e.id));
   const codeById = (id: string) => allEvents.find((e) => e.id === id)?.code ?? id;
@@ -130,6 +221,22 @@ export default function EventForm({
       {includes.map((id) => (
         <input key={id} type="hidden" name="includes" value={id} />
       ))}
+      <input
+        type="hidden"
+        name="ticket_types"
+        value={JSON.stringify(
+          ticketTypes
+            .filter((t) => t.name.trim() && t.code.trim())
+            .map((t) => ({
+              id: t.id,
+              name: t.name.trim(),
+              code: t.code.trim(),
+              price_centavos: Math.round((parseFloat(t.price) || 0) * 100),
+              capacity: t.capacity.trim() ? parseInt(t.capacity, 10) : null,
+              includes: t.includes,
+            }))
+        )}
+      />
 
       {state.error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -171,7 +278,7 @@ export default function EventForm({
         <div>
           <label className={label}>Price (₱)</label>
           <input name="price" type="number" min="0" step="0.01" defaultValue={event ? (event.price_centavos ?? 0) / 100 : 0} className={input} />
-          <p className="mt-1 text-xs text-brand-muted">0 = free</p>
+          <p className="mt-1 text-xs text-brand-muted">0 = free. Ignored if you add ticket types below.</p>
         </div>
         <div>
           <label className={label}>Capacity</label>
@@ -281,9 +388,38 @@ export default function EventForm({
         )}
       </div>
 
+      {/* Ticket types — each with its own price, capacity, and inclusions. When present,
+          these replace the single price above for purchasing. */}
+      <div>
+        <label className={label}>Ticket types</label>
+        <p className="text-xs text-brand-muted">
+          Add one or more ticket types. Each has its own price, capacity, and inclusions. Buyers choose a type and
+          quantity; every ticket gets a number (event code + 001, 002, …).
+        </p>
+        <div className="mt-2 space-y-3">
+          {ticketTypes.map((tt, i) => (
+            <TicketTypeCard
+              key={i}
+              tt={tt}
+              index={i}
+              allEvents={allEvents}
+              eventId={event?.id}
+              onChange={(patch) => updateTT(i, patch)}
+              onRemove={() => removeTT(i)}
+            />
+          ))}
+        </div>
+        <button type="button" onClick={addTT} className="mt-2 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-brand-muted hover:bg-gray-50">
+          + Add ticket type
+        </button>
+      </div>
+
       {/* Registration questions */}
       <div>
         <label className={label}>Registration questions</label>
+        <p className="text-xs text-brand-muted">
+          Title, first name, last name and email are always collected automatically. Add only <em>extra</em> questions here.
+        </p>
         <div className="mt-2 space-y-3">
           {fields.map((f, i) => (
             <div key={i} className="rounded-lg border border-gray-200 p-3">

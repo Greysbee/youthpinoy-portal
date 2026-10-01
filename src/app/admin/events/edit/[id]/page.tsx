@@ -25,6 +25,20 @@ export default async function EditEventPage({
     .select("id, code, title")
     .order("code");
 
+  const { data: ticketTypes } = await admin
+    .from("ticket_types")
+    .select("id, name, code, price_centavos, capacity, ticket_type_includes(included_event_id)")
+    .eq("event_id", id)
+    .order("sort_order");
+  const ticketTypeForms = (ticketTypes ?? []).map((t) => ({
+    id: t.id as string,
+    name: t.name as string,
+    code: t.code as string,
+    price: String(((t.price_centavos as number) ?? 0) / 100),
+    capacity: t.capacity == null ? "" : String(t.capacity),
+    includes: ((t.ticket_type_includes as { included_event_id: string }[]) ?? []).map((i) => i.included_event_id),
+  }));
+
   return (
     <AdminShell>
       <h1 className="text-2xl font-bold text-brand-dark">Edit Event</h1>
@@ -35,6 +49,7 @@ export default async function EditEventPage({
           event={{
             ...event,
             includedEventIds: (includes ?? []).map((i) => i.included_event_id),
+            ticketTypes: ticketTypeForms,
           }}
         />
       </div>

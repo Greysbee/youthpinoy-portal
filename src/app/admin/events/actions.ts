@@ -87,6 +87,64 @@ export async function saveEvent(
     if (error) return { error: error.message };
   }
 
+  // Rewrite ticket types + their inclusions.
+  type TTInput = {
+    id?: string;
+    name: string;
+    code: string;
+    price_centavos: number;
+    capacity: number | null;
+    includes: string[];
+  };
+  let ticketTypes: TTInput[] = [];
+  try {
+    const parsed = JSON.parse((formData.get("ticket_types") as string) || "[]");
+    if (Array.isArray(parsed)) ticketTypes = parsed as TTInput[];
+  } catch {
+    return { error: "Ticket types are not valid — use the builder." };
+  }
+
+  const { data: existingTT } = await admin
+    .from("ticket_types")
+    .select("id")
+    .eq("event_id", eventId);
+  const keep = new Set(ticketTypes.map((t) => t.id).filter(Boolean) as string[]);
+  const removed = (existingTT ?? []).map((t) => t.id as string).filter((id) => !keep.has(id));
+  if (removed.length) {
+    // May fail if a type already has orders (FK) — that's fine, leave it in place.
+    await admin.from("ticket_types").delete().in("id", removed);
+  }
+
+  for (let i = 0; i < ticketTypes.length; i++) {
+    const t = ticketTypes[i];
+    if (!t.name?.trim() || !t.code?.trim()) continue;
+    const ttRow = {
+      event_id: eventId,
+      name: t.name.trim(),
+      code: t.code.trim(),
+      price_centavos: Number(t.price_centavos) || 0,
+      capacity: t.capacity ?? null,
+      sort_order: i,
+    };
+    let ttId = t.id;
+    if (ttId) {
+      const { error } = await admin.from("ticket_types").update(ttRow).eq("id", ttId);
+      if (error) return { error: error.message };
+    } else {
+      const { data, error } = await admin.from("ticket_types").insert(ttRow).select("id").single();
+      if (error) return { error: error.message };
+      ttId = data.id as string;
+    }
+    await admin.from("ticket_type_includes").delete().eq("ticket_type_id", ttId);
+    const incs = (t.includes ?? []).filter((x) => x && x !== eventId);
+    if (incs.length) {
+      const { error } = await admin
+        .from("ticket_type_includes")
+        .insert(incs.map((inc) => ({ ticket_type_id: ttId, included_event_id: inc })));
+      if (error) return { error: error.message };
+    }
+  }
+
   revalidatePath("/admin/events");
   redirect("/admin/events");
 }

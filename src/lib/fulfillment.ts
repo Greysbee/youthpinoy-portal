@@ -26,6 +26,105 @@ export async function fulfillOrder(
 
   if (!order.event_id) return { ok: true };
 
+  // ---- Ticketed order: reserve numbered tickets for the purchaser to assign. ----
+  // Access is NOT granted to the buyer here — only when a ticket is accepted.
+  const { data: orderItems } = await admin
+    .from("order_items")
+    .select("ticket_type_id, quantity")
+    .eq("order_id", order.id);
+  // Normalize to a flat item list; fall back to the single-type field for old orders.
+  const items: { ticket_type_id: string; quantity: number }[] =
+    orderItems && orderItems.length
+      ? orderItems.map((it) => ({ ticket_type_id: it.ticket_type_id as string, quantity: it.quantity as number }))
+      : order.ticket_type_id
+        ? [{ ticket_type_id: order.ticket_type_id as string, quantity: order.quantity as number }]
+        : [];
+
+  if (items.length) {
+    const { data: event } = await admin
+      .from("events")
+      .select("code, title, slug, start_at, end_at, is_online, venue")
+      .eq("id", order.event_id)
+      .single();
+
+    // Idempotent: create tickets + group only once per order.
+    const { count: existing } = await admin
+      .from("tickets")
+      .select("id", { count: "exact", head: true })
+      .eq("order_id", order.id);
+
+    let groupId: string | null = null;
+    if (!existing) {
+      const totalQty = items.reduce((s, it) => s + it.quantity, 0);
+      const { data: grp } = await admin
+        .from("groups")
+        .insert({
+          name: `${event?.code ?? "Event"} — ${event?.title ?? "Tickets"}`,
+          owner_participant_id: order.buyer_participant_id,
+          event_id: order.event_id,
+          order_id: order.id,
+          seats_total: totalQty,
+        })
+        .select("id")
+        .single();
+      groupId = (grp?.id as string) ?? null;
+
+      const { data: startSeq } = await admin.rpc("next_ticket_seq", {
+        p_event: order.event_id,
+        p_count: totalQty,
+      });
+      let seq = Number(startSeq);
+      const rows: Record<string, unknown>[] = [];
+      for (const it of items) {
+        for (let k = 0; k < it.quantity; k++) {
+          rows.push({
+            event_id: order.event_id,
+            ticket_type_id: it.ticket_type_id,
+            order_id: order.id,
+            group_id: groupId,
+            seq,
+            code: `${event?.code ?? "T"}${String(seq).padStart(3, "0")}`,
+            purchaser_participant_id: order.buyer_participant_id,
+            status: "reserved",
+          });
+          seq++;
+        }
+      }
+      await admin.from("tickets").insert(rows);
+    } else {
+      groupId = (await admin.from("groups").select("id").eq("order_id", order.id).maybeSingle()).data?.id ?? null;
+    }
+
+    const { data: buyer } = await admin
+      .from("participants")
+      .select("email")
+      .eq("id", order.buyer_participant_id)
+      .single();
+    if (buyer?.email && event) {
+      await sendEmail({
+        type: "order_paid",
+        to: buyer.email,
+        refId: String(order.id),
+        participantId: order.buyer_participant_id,
+        data: {
+          orderRef: String(order.id).slice(0, 8).toUpperCase(),
+          eventTitle: event.title,
+          slug: event.slug,
+          quantity: order.quantity,
+          amountCentavos: order.amount_centavos,
+          paidAt: new Date().toISOString(),
+          paymentMethod: null,
+          startAt: event.start_at,
+          endAt: event.end_at,
+          isOnline: event.is_online,
+          venue: event.venue,
+          groupId,
+        },
+      });
+    }
+    return { ok: true };
+  }
+
   // Buyer registration (unique participant+event).
   const { data: reg } = await admin
     .from("registrations")
